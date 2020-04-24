@@ -12,4 +12,4 @@ echo "downloading $1 data"
 wget http://deepyeti.ucsd.edu/jianmo/amazon/categoryFiles/$1.json.gz
 
 echo "downloading $1 meta"
-wget http://deepyeti.ucsd.edu/jianmo/amazon/metaFiles/$1.json.gz
+wget http://deepyeti.ucsd.edu/jianmo/amazon/metaFiles/meta_$1.json.gz
