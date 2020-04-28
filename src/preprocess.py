@@ -14,7 +14,6 @@ def parse(path):
     for l in g:
         yield json.loads(l)
 
-
 def getDF(path):
     i = 0
     df = {}
@@ -23,15 +22,12 @@ def getDF(path):
         i += 1
     return pd.DataFrame.from_dict(df, orient='index')
 
-
 def reviews(df):
     return df.groupby('reviewerID')['reviewText'].agg(list)
-
 
 def descriptions(df):
     df['description'] = df['description'].apply(lambda x: [] if x is np.nan else x)
     return df.groupby('asin')['description'].agg(lambda s: sum(s, []))
-
 
 def ratings(df):
     df["both"] = df[["reviewerID", "asin"]].agg('-'.join, axis=1)
