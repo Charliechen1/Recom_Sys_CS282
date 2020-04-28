@@ -1,76 +1,55 @@
-import os
-import json
+import numpy as np
 import gzip
-import pandas as pd
-from urllib.request import urlopen
-
-def num(s):
-    try:
-        return int(s)
-    except ValueError:
-        return float(s)
+import json
+import os.path
+from field_parser import parser_register
+from field_reducer import reducer_register
+from collections import defaultdict
 
 class Products:
-    def __init__(self, filename):
-        self.df = pd.read_pickle(filename)
-        if len(self.df) < 1:
-            print("Invalid Filename!")
-        else:
-            self.attribute_types = list(self.df.columns)
-            print("Products in total: ", len(self.df))
-        return
+    def __init__(self, domain_name):
+        self.domain_name = domain_name
+        self.fields_interested = ['title', 'rank', 'also_view', 'also_buy', 'description']
+        self.idx2ftr = defaultdict(dict)
+        self._load_meta(f'../data/meta_{domain_name}.json.gz')
 
-    def get_attribute_types(self):
-        return self.attribute_types
+    def _load_meta(self, meta_file_name):
+        """
+        Function to load meta information. This is the major source of features
+        """
+        # asin is the index for product
+        index_field = 'asin'
+        # currently we fetch these part of data
+        if not os.path.isfile(meta_file_name):
+            print ("File not exist")
+            return
 
-    def get_record(self, product_code):
-        return self.df.loc[product_code]
+        with gzip.open(meta_file_name, 'rb') as f:
+            for line in f:
+                line_data = json.loads(line)
+                index = line_data[index_field]
+                if not index:
+                    continue
+                for field in self.fields_interested:
+                    ftr_parser = parser_register.get(field, None)
+                    ftr_val = None
+                    if ftr_parser:
+                        ftr_val = ftr_parser(line_data.get(field, None))
+                    # I have checked the data, there might be multiple records for
+                    # a single index, but seems they are simply duplicated
+                    self.idx2ftr[index][field] = ftr_val
 
-    def get_attributes(self, product_code, types: []):
-        if not types:
-            types = self.attribute_types
-        data = {}
-        record = self.df.loc[product_code]
-        for type in types:
-            data[type] = record[type]
+    def get_record(self, index):
+        return self.idx2ftr.get(index, {})
 
-        return data
+    def get_attributes_column(self):
+        return self.fields_interested
 
-    def get_attribute_with_aggregation(self, product_code, types: [], agg_types: []):
-        if not types:
-            types = self.attribute_types
-        data = {}
-        record = self.df.loc[product_code]
-        for type, agg_type in zip(types, agg_types):
-            # data[type] = record[type].values[0]
-            info = record[type]
-            if agg_type == 'COUNT':
-                data[type + '_count'] = len(info)
-            elif agg_type == "AVERAGE":
-                # might exist NaN element
-                sums = 0
-                for i in info:
-                    if pd.notna(i) :
-                        sums += num(i)
-                data[type + '_avg'] = sums / len(info)
+if __name__ == '__main__':
+    products = Products("AMAZON_FASHION")
+    #products = Products("Gift_Cards")
+    test_idx = "B00004T3SN"
+    res = products.get_record(test_idx)
 
-        return data
+    print(f"detailed info for product {test_idx} is: \n{json.dumps(res)}")
 
-
-if __name__ == "__main__":
-    # Expected output:
-    # Products in total: 535
-    # print the number of products in total
-    products = Products('test.pkl')
-
-    # Expected output:
-    # ['Gift Amount:', 'Format:', 'Size:']
-    # print a list of atttributes' names
-    print("Style contains these attributes: ", products.get_attribute_types())
-
-    # Retrieve product infos using its asin
-    print("---------------Access the product B001GXRQW0-----------------")
-    print("Raw record: ", products.get_record('B001GXRQW0'))
-    print("Gift Amount: ", products.get_attributes('B001GXRQW0', ['Gift Amount:']))
-    print("Gift Amount Count: ", products.get_attribute_with_aggregation('B001GXRQW0', ['Gift Amount:'], ['COUNT']))
-    print("Gift Amount Average: ", products.get_attribute_with_aggregation('B001GXRQW0', ['Gift Amount:'], ['AVERAGE']))
