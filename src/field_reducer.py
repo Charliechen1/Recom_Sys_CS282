@@ -16,7 +16,7 @@ def count_reducer(ftr):
         return 0
     try:
         return len(ftr)
-    else:
+    except:
         return 0
 
 @register
