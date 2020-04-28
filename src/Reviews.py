@@ -78,19 +78,12 @@ class Reviews:
 
 
 if __name__ == '__main__':
-    #r = Reviews('AMAZON_FASHION')
-    r = Reviews('Gift_Cards')
+    r = Reviews('AMAZON_FASHION')
+    #r = Reviews('Gift_Cards')
     rev_idx_list = r.get_all_rev_idx()
-
-    test_rev = rev_idx_list[0]
-
-    pro_idx_list = r.get_pro_by_rev(test_rev)
-
-    reviews = r.get_reviews(test_rev)
-    print(reviews)
-    test_prod = pro_idx_list[0]
-    print(test_rev, test_prod)
-    rating = r.get_rating(test_rev, test_prod)
-    reviews = r.get_reviews(test_rev, test_prod)
-    print(reviews)
-    print(rating)
+    print(len(rev_idx_list))
+    for rev_idx in rev_idx_list:
+        pro_idx_list = r.get_pro_by_rev(rev_idx)
+        for pro_idx in pro_idx_list:
+            reviews = r.get_reviews(rev_idx, pro_idx)
+            ratings = r.get_rating(rev_idx, pro_idx)
