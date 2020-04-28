@@ -59,8 +59,11 @@ class Reviews:
             scores = list(filter(lambda x: x >= 0, scores))
         return scores
 
-    def get_reviews(self, rev_idx):
-        data_idx_list = self.idx2rev[rev_idx]
+    def get_reviews(self, rev_idx, pro_idx=None):
+        if not pro_idx:
+            data_idx_list = self.idx2rev[rev_idx]
+        else:
+            data_idx_list = self.biidx2rat[f'{rev_idx}_{pro_idx}']
         return [self.data_storage[idx]
                   for idx in data_idx_list]
 
@@ -84,9 +87,10 @@ if __name__ == '__main__':
     pro_idx_list = r.get_pro_by_rev(test_rev)
 
     reviews = r.get_reviews(test_rev)
+    print(reviews)
     test_prod = pro_idx_list[0]
     print(test_rev, test_prod)
     rating = r.get_rating(test_rev, test_prod)
-
+    reviews = r.get_reviews(test_rev, test_prod)
     print(reviews)
     print(rating)
