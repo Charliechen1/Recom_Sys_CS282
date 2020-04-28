@@ -38,3 +38,28 @@ def parse_also_buy(ftr):
 def parse_description(ftr):
     if not ftr: return []
     return ftr
+
+@register
+def parse_reviewerName(ftr):
+    if not ftr: return ""
+    return ftr
+
+@register
+def parse_reviewText(ftr):
+    if not ftr: return ""
+    return ftr
+
+@register
+def parse_summary(ftr):
+    if not ftr: return ""
+    return ftr
+
+@register
+def parse_unixReviewTime(ftr):
+    if not ftr: return -1
+    return int(ftr)
+
+@register
+def parse_overall(ftr):
+    if not ftr: return -1
+    return int(ftr)

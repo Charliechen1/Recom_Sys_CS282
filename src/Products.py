@@ -11,14 +11,14 @@ class Products:
         self.domain_name = domain_name
         self.fields_interested = ['title', 'rank', 'also_view', 'also_buy', 'description']
         self.idx2ftr = defaultdict(dict)
-        self._load_meta(f'../data/meta_{domain_name}.json.gz')
+        self._load_meta(f'data/meta_{domain_name}.json.gz')
+        self.index_field = 'asin'
 
     def _load_meta(self, meta_file_name):
         """
         Function to load meta information. This is the major source of features
         """
         # asin is the index for product
-        index_field = 'asin'
         # currently we fetch these part of data
         if not os.path.isfile(meta_file_name):
             print ("File not exist")
@@ -27,7 +27,7 @@ class Products:
         with gzip.open(meta_file_name, 'rb') as f:
             for line in f:
                 line_data = json.loads(line)
-                index = line_data[index_field]
+                index = line_data[self.index_field]
                 if not index:
                     continue
                 for field in self.fields_interested:
