@@ -25,7 +25,8 @@ def getDF(path):
 
 
 def reviews(df):
-    return df.groupby('reviewerID')['reviewText'].agg(list)
+    df['review-item-tuple'] = df[['asin', 'reviewText']].apply(tuple, axis=1)
+    return df.groupby('reviewerID')['review-item-tuple'].agg(list)
 
 
 def descriptions(df):
@@ -34,7 +35,7 @@ def descriptions(df):
 
 
 def ratings(df):
-    df["both"] = df[["reviewerID", "asin"]].agg('-'.join, axis=1)
+    df["both"] = df[["reviewerID", "asin"]].apply('-'.join, axis=1)
     return df.groupby('both')[['overall', 'reviewText']].agg(list)
 
 
@@ -42,11 +43,11 @@ class DataLoader:
     def __init__(self, name='Gift_Cards'):
         data_path = name + '.json.gz'
         meta_path = 'meta_' + data_path
-        data_table = getDF(data_path)
+        self.data_table = getDF(data_path)
         meta_table = getDF(meta_path)
-        self.reviews = reviews(data_table)
+        self.reviews = reviews(self.data_table)
         self.descriptions = descriptions(meta_table)
-        self.ratings = ratings(data_table)
+        self.ratings = ratings(self.data_table)
 
     def get_descriptions(self, item_id):
         return self.descriptions[item_id]
