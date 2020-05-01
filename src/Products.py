@@ -2,8 +2,8 @@ import numpy as np
 import gzip
 import json
 import os.path
-from field_parser import parser_register
-from field_reducer import reducer_register
+from src.field_parser import parser_register
+from src.field_reducer import reducer_register
 from collections import defaultdict
 from random import sample
 
@@ -45,19 +45,22 @@ class Products:
                 self.data_storage.append(data)
                 self.idx2ftr[index] = num_idx
 
-    def get_record(self, index):
+    def get_product(self, index):
         num_idx = self.idx2ftr.get(index, -1)
         if num_idx == -1:
             return None
         return self.data_storage[num_idx]
 
+    def get_product_list(self, index_list):
+        num_index_list = [self.idx2ftr[idx] for idx in index_list]
+
     def get_attributes_column(self):
         return self.fields_interested
 
-    def get_all_record_idx(self):
+    def get_all_product_idx(self):
         return list(self.idx2ftr.keys())
 
-    def get_all_record(self):
+    def get_all_product(self):
         return self.data_storage
 
     def get_batch(self, batch_size):
@@ -67,7 +70,7 @@ if __name__ == '__main__':
     # products = Products("AMAZON_FASHION")
     products = Products("Gift_Cards")
     test_idx = "B01GKWEJTO"
-    res = products.get_record(test_idx)
+    res = products.get_product(test_idx)
 
     print(f"detailed info for product {test_idx} is: \n{json.dumps(res)}")
 
