@@ -5,14 +5,16 @@ import os.path
 from field_parser import parser_register
 from field_reducer import reducer_register
 from collections import defaultdict
+from random import sample
 
 class Products:
     def __init__(self, domain_name):
         self.domain_name = domain_name
         self.fields_interested = ['title', 'rank', 'also_view', 'also_buy', 'description']
         self.idx2ftr = defaultdict(dict)
-        self._load_meta(f'data/meta_{domain_name}.json.gz')
         self.index_field = 'asin'
+        self.data_storage = []
+        self._load_meta(f'data/meta_{domain_name}.json.gz')
 
     def _load_meta(self, meta_file_name):
         """
@@ -30,6 +32,7 @@ class Products:
                 index = line_data[self.index_field]
                 if not index:
                     continue
+                data = {}
                 for field in self.fields_interested:
                     ftr_parser = parser_register.get(field, None)
                     ftr_val = None
@@ -37,19 +40,41 @@ class Products:
                         ftr_val = ftr_parser(line_data.get(field, None))
                     # I have checked the data, there might be multiple records for
                     # a single index, but seems they are simply duplicated
-                    self.idx2ftr[index][field] = ftr_val
+                    data[field] = ftr_val
+                num_idx = len(self.data_storage)
+                self.data_storage.append(data)
+                self.idx2ftr[index] = num_idx
 
     def get_record(self, index):
-        return self.idx2ftr.get(index, {})
+        num_idx = self.idx2ftr.get(index, -1)
+        if num_idx == -1:
+            return None
+        return self.data_storage[num_idx]
 
     def get_attributes_column(self):
         return self.fields_interested
 
+    def get_all_record_idx(self):
+        return list(self.idx2ftr.keys())
+
+    def get_all_record(self):
+        return self.data_storage
+
+    def get_batch(self, batch_size):
+        return sample(self.data_storage, batch_size)
+
 if __name__ == '__main__':
-    products = Products("AMAZON_FASHION")
-    #products = Products("Gift_Cards")
-    test_idx = "B00004T3SN"
+    # products = Products("AMAZON_FASHION")
+    products = Products("Gift_Cards")
+    test_idx = "B01GKWEJTO"
     res = products.get_record(test_idx)
 
     print(f"detailed info for product {test_idx} is: \n{json.dumps(res)}")
+
+    # all_rec = products.get_all_record()
+    # print(all_rec)
+    num_iter, batch_size = 100000, 128
+    for _ in range(num_iter):
+        batch_sample = products.get_batch(batch_size)
+    # print(batch_sample)
 
