@@ -4,7 +4,7 @@ import gzip
 from field_parser import parser_register
 from field_reducer import reducer_register
 from collections import defaultdict
-
+from random import sample
 
 class Reviews:
     def __init__(self, domain_name):
@@ -16,6 +16,7 @@ class Reviews:
         self.rev2pro = defaultdict(list)
         self.pro2rev = defaultdict(list)
         self.data_storage = []
+        self.bikey_storage = []
 
         self.interested_fields = ['reviewerName', 'reviewText',
                                   'summary', 'unixReviewTime', 'overall']
@@ -45,6 +46,7 @@ class Reviews:
                 # save indexing
                 self.idx2rev[rev_idx].append(num_idx)
                 self.biidx2rat[f'{rev_idx}_{pro_idx}'].append(num_idx)
+                self.bikey_storage.append((rev_idx, pro_idx))
                 self.rev2pro[rev_idx].append(pro_idx)
                 self.pro2rev[pro_idx].append(rev_idx)
 
@@ -70,8 +72,14 @@ class Reviews:
     def get_all_rev_idx(self):
         return list(self.idx2rev.keys())
 
+    def get_all_rev(self):
+        return self.data_storage
+
+    def get_batch_bikey(self, batch_size):
+        return sample(self.bikey_storage, batch_size)
+
     def get_all_bi_idx(self):
-        return list(self.biidx2rat.keys())
+        return self.bikey_storage
 
     def get_pro_by_rev(self, rev_idx):
         return self.rev2pro.get(rev_idx, [])
