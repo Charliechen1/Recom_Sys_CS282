@@ -5,6 +5,7 @@ from field_parser import parser_register
 from field_reducer import reducer_register
 from collections import defaultdict
 from random import sample
+from sklearn.model_selection import train_test_split
 
 class Reviews:
     def __init__(self, domain_name):
@@ -21,6 +22,8 @@ class Reviews:
         self.interested_fields = ['reviewerName', 'reviewText',
                                   'summary', 'unixReviewTime', 'overall']
 
+        self.idx_train = []
+        self.idx_test = []
         self._load_data(f'data/{domain_name}.json.gz')
 
     def _load_data(self, data_file_name):
@@ -75,8 +78,11 @@ class Reviews:
     def get_all_rev(self):
         return self.data_storage
 
-    def get_batch_bikey(self, batch_size):
-        return sample(self.bikey_storage, batch_size)
+    def get_batch_bikey(self, batch_size, from_train=True):
+        if from_train:
+            return sample(self.idx_train, batch_size)
+        else:
+            return sample(self.idx_test, batch_size)
 
     def get_all_bi_idx(self):
         return self.bikey_storage
@@ -84,10 +90,17 @@ class Reviews:
     def get_pro_by_rev(self, rev_idx):
         return self.rev2pro.get(rev_idx, [])
 
+    def train_test_split(self, test_size, random_state=42):
+        idx_train, idx_test = train_test_split(
+            self.bikey_storage, test_size=test_size, random_state=random_state
+        )
+        self.idx_train = idx_train
+        self.idx_test = idx_test
+        return idx_train, idx_test
 
 if __name__ == '__main__':
-    r = Reviews('AMAZON_FASHION')
-    #r = Reviews('Gift_Cards')
+    #r = Reviews('AMAZON_FASHION')
+    r = Reviews('Gift_Cards')
     rev_idx_list = r.get_all_rev_idx()
     print(len(rev_idx_list))
     for rev_idx in rev_idx_list:
@@ -95,3 +108,16 @@ if __name__ == '__main__':
         for pro_idx in pro_idx_list:
             reviews = r.get_reviews(rev_idx, pro_idx)
             ratings = r.get_rating(rev_idx, pro_idx)
+
+
+    # how to split train and test data
+    # and how to fetch data by batch
+    r.train_test_split(0.2)
+    print(len(r.bikey_storage))
+    print(len(r.idx_train), len(r.idx_test))
+    batch_size = 128
+    train_batch = r.get_batch_bikey(batch_size, from_train=True)
+    test_batch = r.get_batch_bikey(batch_size, from_train=False)
+
+
+
