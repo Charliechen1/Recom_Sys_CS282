@@ -63,3 +63,8 @@ def parse_unixReviewTime(ftr):
 def parse_overall(ftr):
     if not ftr: return -1
     return int(ftr)
+
+@register
+def parse_style(str):
+    if not ftr: return {}
+    return ftr

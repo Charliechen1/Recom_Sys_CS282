@@ -10,7 +10,7 @@ from random import sample
 class Products:
     def __init__(self, domain_name):
         self.domain_name = domain_name
-        self.fields_interested = ['title', 'rank', 'also_view', 'also_buy', 'description']
+        self.fields_interested = ['title', 'rank', 'also_view', 'also_buy', 'description', 'style']
         self.idx2ftr = defaultdict(dict)
         self.index_field = 'asin'
         self.data_storage = []
