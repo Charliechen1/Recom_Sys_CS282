@@ -10,7 +10,7 @@ from random import sample
 class Products:
     def __init__(self, domain_name):
         self.domain_name = domain_name
-        self.fields_interested = ['title', 'rank', 'also_view', 'also_buy', 'description', 'style']
+        self.fields_interested = ['title', 'rank', 'also_view', 'also_buy', 'description']
         self.idx2ftr = defaultdict(dict)
         self.index_field = 'asin'
         self.data_storage = []
@@ -37,6 +37,8 @@ class Products:
                     ftr_parser = parser_register.get(field, None)
                     ftr_val = None
                     if ftr_parser:
+                        if field == 'style':
+                            print(line_data.get(field, None))
                         ftr_val = ftr_parser(line_data.get(field, None))
                     # I have checked the data, there might be multiple records for
                     # a single index, but seems they are simply duplicated

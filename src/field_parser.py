@@ -67,4 +67,27 @@ def parse_overall(ftr):
 @register
 def parse_style(ftr):
     if not ftr: return {}
-    return ftr
+    size_dict = {
+        "x-small": 1,
+        "xs": 1,
+        "small": 2,
+        "s": 2,
+        "medium": 3,
+        "m": 3,
+        "large": 4,
+        "l": 4,
+        "x-large": 5,
+        "xl": 5,
+        "xx-large": 6,
+        "xxl": 6,
+        "xxx-large": 7,
+        "xxxl": 8
+    }
+    res = {}
+    res['metal_type'] = ftr.get('Metal Type:', '').strip()
+    res['gem_type'] = ftr.get('Gem Type:', '').strip()
+    res['length'] = ftr.get('Length', 0.0)
+    res['size'] = size_dict.get(ftr.get('Size:', '').strip().split(' ')[0].lower(), 0)
+    res['style'] = ftr.get('Style:', '').strip()
+
+    return res
