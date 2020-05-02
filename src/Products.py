@@ -11,14 +11,14 @@ class Products:
     def __init__(self, domain_name):
         self.domain_name = domain_name
         self.fields_interested = ['title', 'rank', 'also_view', 'also_buy', 'description']
-        self.reducer_fields = {'also_view': 'bag_of_prod',
-                               'also_buy': 'bag_of_prod'}
+        self.reducer_fields = {'also_view': ('bag_of_prod', 'freq_also_view'),
+                               'also_buy': ('bag_of_prod', 'freq_also_buy')}
         self.idx2ftr = defaultdict(int)
         self.index_field = 'asin'
         self.data_storage = []
         self._load_meta(f'data/meta_{domain_name}.json.gz')
-        self._load_attr('freq_also_view', 'data/high_freq_1000_also_view.txt')
-        self._load_attr('freq_also_buy', 'data/high_freq_1000_also_buy.txt')
+        self._load_attr('freq_also_view', 'dict/high_freq_1000_also_view.txt')
+        self._load_attr('freq_also_buy', 'dict/high_freq_1000_also_buy.txt')
 
     def _load_meta(self, meta_file_name):
         """
@@ -62,7 +62,8 @@ class Products:
 
     def _reduce_data(self, num_idx):
         prod = self.data_storage[num_idx]
-        for field, reducer_name in self.reducer_fields.items():
+        for field, conf in self.reducer_fields.items():
+            reducer_name, dict_name = conf
             reducer = reducer_register.get(reducer_name, None)
             if not reducer:
                 continue
@@ -70,8 +71,8 @@ class Products:
             if not field_val:
                 continue
             prod[f'{field}_{reducer_name}'] = reducer(field_val,
-                                                      idx2ftr=getattr(self, f'freq_{field}_idx'),
-                                                      data_storage=getattr(self, f'freq_{field}'))
+                                                      idx2ftr=getattr(self, f'{dict_name}_idx'),
+                                                      data_storage=getattr(self, f'{dict_name}'))
 
 
     def get_product(self, index, reduce=True):
