@@ -2,7 +2,7 @@ from src.Products import Products
 from src.Reviews import Reviews
 import time
 
-domain = 'Gift_Cards'
+domain = 'AMAZON_FASHION'
 p = Products(domain)
 r = Reviews(domain)
 
@@ -14,7 +14,7 @@ print(len(r.idx_train), len(r.idx_test))
 
 batch_size = 128
 
-no_iter = 10000
+no_iter = 1
 
 s = time.time()
 for _ in range(no_iter):
@@ -24,11 +24,8 @@ for _ in range(no_iter):
     train_prod_idx_batch = [p[1] for p in train_idx_batch]
 
     train_rev_batch = [r.get_reviews(idx) for idx in train_rev_idx_batch]
-    train_prod_batch = [p.get_product(idx) for idx in train_prod_idx_batch]
+    train_prod_batch = [p.get_product(idx, reduce=True) for idx in train_prod_idx_batch]
 
-    for prod in train_prod_batch:
-        if prod['style']:
-            print(prod['style'])
 
 e = time.time()
 print(f'time spent: {e - s}')
