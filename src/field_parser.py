@@ -65,6 +65,6 @@ def parse_overall(ftr):
     return int(ftr)
 
 @register
-def parse_style(str):
+def parse_style(ftr):
     if not ftr: return {}
     return ftr
