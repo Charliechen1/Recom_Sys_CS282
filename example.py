@@ -25,7 +25,7 @@ for _ in range(no_iter):
 
     train_rev_batch = [r.get_reviews(idx) for idx in train_rev_idx_batch]
     train_prod_batch = [p.get_product(idx, reduce=True) for idx in train_prod_idx_batch]
-    print(train_prod_batch[0])
+    print(train_prod_batch[10])
 
 
 e = time.time()
