@@ -114,7 +114,7 @@ def prepare_prod_batch(prod_batch, tokenizer):
         bops.append(bop)
 
     text_tensor = torch.tensor(encoded_texts)
-    bop_tensor = torch.from_numpy(np.stack(bops, axis=0)).float()
+    bop_tensor = torch.from_numpy(np.stack(bops, axis=0)).long()
 
     return text_tensor, bop_tensor
 
