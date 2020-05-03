@@ -73,5 +73,4 @@ class ProductTower(nn.Module):
 
         return rnn_out, fm_out
 
-
-
+# TODO: Add Review side model here
