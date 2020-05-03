@@ -1,21 +1,41 @@
 import torch
 import torch.nn as nn
-from product_utils import process_prod_batch
+
+
+class FM(nn.Module):  # taken from https://www.kaggle.com/gennadylaptev/factorization-machine-implemented-in-pytorch
+    def __init__(self, n=None, k=None):
+        super().__init__()
+        # Initially we fill V with random values sampled from Gaussian distribution
+        # NB: use nn.Parameter to compute gradients
+        self.V = nn.Parameter(torch.randn(n, k), requires_grad=True)
+        self.lin = nn.Linear(n, 1)
+
+    def forward(self, x):
+        out_1 = torch.matmul(x, self.V).pow(2).sum(1, keepdim=True)  # S_1^2
+        out_2 = torch.matmul(x.pow(2), self.V.pow(2)).sum(1, keepdim=True)  # S_2
+
+        out_inter = 0.5 * (out_1 - out_2)
+        out_lin = self.lin(x)
+        out = out_inter + out_lin
+
+        return out
 
 
 class ProductTower(nn.Module):
-    def __init__(self, embed_model, embed_tokenizer, embed_dim, seq_len, lstm_hidden_dim, n_lstm,
-                 prod2idx):
+    def __init__(self, embed_model, embed_dim, rnn_hidden_dim, rnn_num_layers,
+                 fm_n, fm_k,
+                 rnn_type='GRU'):
         super(ProductTower, self).__init__()
-        self.lstm = nn.LSTM(embed_dim, lstm_hidden_dim, batch_first=True, num_layers=n_lstm)
         self.embed_model = embed_model
-        self.embed_tokenizer = embed_tokenizer
-        self.seq_len = seq_len
+        if rnn_type == 'GRU':
+            self.rnn = nn.GRU(embed_dim, rnn_hidden_dim, rnn_num_layers, batch_first=True)
+        else:
+            self.rnn = nn.LSTM(embed_dim, rnn_hidden_dim, batch_first=True, num_layers=rnn_num_layers)
+        self.fm = FM(fm_n, fm_k)
 
-        self.prod2idx = prod2idx
+    def forward(self, text, bop):
+        embedding = self.embed_model(text)
+        rnn_out, _ = self.rnn(embedding)
+        fm_out = self.fm(bop)
 
-    def forward(self, X):
-        embedding, also_view, also_buy = process_prod_batch(X, self.embed_model, self.embed_tokenizer, self.seq_len, self.prod2idx)
-        lstm_out, _ = self.lstm(embedding)
-
-        return lstm_out
+        return rnn_out, fm_out
