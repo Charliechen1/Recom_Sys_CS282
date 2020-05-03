@@ -28,7 +28,7 @@ class SelfAttnDSSM(nn.Module):
     def forward(self, query, document):
         # query is the embedding for product title, with size (batch_size, seq_len, emb_size)
         # document should be a list of tensor with size (batch_size, seq_len, emb_size)
-        query_self_attn_res = self.query_self_attn(query)
+        query_self_attn_res, _ = self.query_self_attn(query)
 
         doc_cros_attn_res = [cros_attn_layer(query, document[idx])[0] \
                              for idx, cros_attn_layer in enumerate(self.cros_attn_blocks)]
@@ -41,7 +41,7 @@ class SelfAttnDSSM(nn.Module):
         # (sen_no, batch_size, emb_size) -> (batch_size, sen_no, emb_size)
         doc_cros_attn_res = doc_cros_attn_res.transpose(0, 1)
 
-        doc_self_attn_res,_ ,_ = self.doc_high_self_attn(doc_cros_attn_res)
+        doc_self_attn_res, _ = self.doc_high_self_attn(doc_cros_attn_res)
 
         # (batch_size, sen_no, emb_size) -> (batch_size, emb_size)
         doc_self_attn_res = doc_self_attn_res.mean(1)
