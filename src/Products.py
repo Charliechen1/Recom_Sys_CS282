@@ -68,8 +68,6 @@ class Products:
             if not reducer:
                 continue
             field_val = prod.get(field, None)
-            if not field_val:
-                continue
             prod[f'{field}_{reducer_name}'] = reducer(field_val,
                                                       idx2ftr=getattr(self, f'{dict_name}_idx'),
                                                       data_storage=getattr(self, f'{dict_name}'))
