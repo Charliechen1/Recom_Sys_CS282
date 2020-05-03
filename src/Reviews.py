@@ -1,8 +1,8 @@
 import json
 import os
 import gzip
-from field_parser import parser_register
-from field_reducer import reducer_register
+from src.field_parser import parser_register
+from src.field_reducer import reducer_register
 from collections import defaultdict
 from random import sample
 from sklearn.model_selection import train_test_split
@@ -108,16 +108,4 @@ if __name__ == '__main__':
         for pro_idx in pro_idx_list:
             reviews = r.get_reviews(rev_idx, pro_idx)
             ratings = r.get_rating(rev_idx, pro_idx)
-
-
-    # how to split train and test data
-    # and how to fetch data by batch
-    r.train_test_split(0.2)
-    print(len(r.bikey_storage))
-    print(len(r.idx_train), len(r.idx_test))
-    batch_size = 128
-    train_batch = r.get_batch_bikey(batch_size, from_train=True)
-    test_batch = r.get_batch_bikey(batch_size, from_train=False)
-
-
 
