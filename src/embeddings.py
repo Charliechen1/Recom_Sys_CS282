@@ -13,7 +13,7 @@ class Tokenizer:
         self.vocab_table = vocab_table
 
     def tokenize(self, text):
-        tokens = gensim.utils.simple_preprocess(text)
+        tokens = gensim.utils.tokenize(text, lowercase=True)
         res = ['pad'] * MAX_SEQUENCE_LENGTH
         res[:min(MAX_SEQUENCE_LENGTH, len(tokens))] = tokens[:min(MAX_SEQUENCE_LENGTH, len(tokens))]
         return res
@@ -46,8 +46,9 @@ def get_embed_layer(method = 'word2vec'):
     elif method == 'bert':
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         model = BertModel.from_pretrained('bert-base-uncased')
+        embed_dim = 768
         model.eval()
-        return tokenizer, model
+        return tokenizer, model.embeddings.word_embeddings, embed_dim
 
 
 
