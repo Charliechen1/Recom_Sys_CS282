@@ -142,8 +142,8 @@ class ScaledDotProductAttention(nn.Module):
 
 class ReviewGRU(nn.Module):
     
-    def __init__(self, input_dim, embedding, embedding_weights):
-        super(ReviewGRU, self).__init__()
+    def __init__(self, input_dim, embedding_dim, embedding):
+        super().__init__()
         
         self.embedding = embedding
         self.gru = nn.GRU(embedding_dim, embedding_dim, batch_first = True, bidirectional = True)
@@ -151,5 +151,5 @@ class ReviewGRU(nn.Module):
     def forward(self, x):
         
         x = self.embedding(x)
-        x, _ = self.gru(x)
+        x, _ = self.gru(x.unsqueeze(0))
         return x

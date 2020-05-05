@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from Sublayers import EncoderLayer, DecoderLayer, ReviewGRU
+from embeddings import get_embed_layer
 import torchfm.model.fm as fm
 
 class SelfAttnDSSM(nn.Module):
@@ -65,31 +66,38 @@ class SelfAttnDSSM(nn.Module):
 
 class ReviewTower(nn.Module):
     
-    def __init__(self, input_dim, embedding_dim, embedding_type, n_reviews):
+    def __init__(self, input_dim, embedding_type, n_reviews):
         super(ReviewTower, self).__init__()
         
         self.n_reviews = n_reviews
         
-        #embedding = get_embedding(embedding_type) 
-        embedding = torch.nn.Embedding(input_dim, embedding_dim)
+        self.tokenizer, self.embedding, self.embed_dim = get_embed_layer(embedding_type) 
         
         self.review_blocks = nn.ModuleList([
-            ReviewGRU(input_dim, embedding_dim, embedding) for _ in range(n_reviews)
+            ReviewGRU(input_dim, self.embed_dim, self.embedding) for _ in range(n_reviews)
         ])
         
-    def forward(self, x):
+    def forward(self, reviews):
         
-        # assuming x is a list of one-hot tokenized reviews
-        x = self.pad_reviews(x)
-        x = [review_block(x_i) for x_i, review_block in zip(x, self.review_blocks)]
-        return x
+        reviews = self.pad_reviews(reviews)
+        reviews = [self.preprocess_review(rev_text) for rev_text in reviews]
+        reviews = [review_block(review) for review, review_block in zip(reviews, self.review_blocks)]
+        return reviews
     
-    def pad_reviews(self, x):
+    def preprocess_review(self, text):
         
-        padded_x = ['pad' for _ in range(self.n_reviews)]
-        padded_x[:min(len(x), self.n_reviews)] = x[:min(len(x), self.n_reviews)]
-        return padded_x
+        tokens = self.tokenizer.tokenize(text)
+        ids = self.tokenizer.convert_tokens_to_ids(tokens)
+        return torch.LongTensor(ids)
     
+    def pad_reviews(self, reviews):
+        
+        padded_reviews = ['' for _ in range(self.n_reviews)]
+        padded_reviews[:min(len(reviews), self.n_reviews)] = reviews[:min(len(reviews), self.n_reviews)]
+        return padded_reviews
+        
+        
+        
 class ProductTower(nn.Module):
     def __init__(self, embed_model, embed_dim,
                  rnn_hidden_dim, rnn_num_layers,
