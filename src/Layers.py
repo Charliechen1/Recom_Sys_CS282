@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from Layers import EncoderLayer, DecoderLayer
+from Sublayers import EncoderLayer, DecoderLayer, ReviewGRU
 
 class SelfAttnDSSM(nn.Module):
     """
@@ -24,6 +24,7 @@ class SelfAttnDSSM(nn.Module):
         self.doc_high_self_attn = EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout)
 
     def forward(self, query, document):
+        
         # query is the embedding for product title, with size (batch_size, seq_len, emb_size)
         # document should be a list of tensor with size (batch_size, seq_len, emb_size)
         query_self_attn_res = self.query_self_attn(query)
@@ -50,4 +51,29 @@ class SelfAttnDSSM(nn.Module):
         return dssm_out
 
 
-
+class ReviewTower(nn.Module):
+    
+    def __init__(self, input_dim, embedding_dim, embedding_type, n_reviews):
+        super(ReviewTower, self).__init__()
+        
+        self.n_reviews = n_reviews
+        
+        #embedding = get_embedding(embedding_type) 
+        embedding = torch.nn.Embedding(input_dim, embedding_dim)
+        
+        self.review_blocks = nn.ModuleList([
+            ReviewGRU(input_dim, embedding_dim, embedding) for _ in range(n_reviews)
+        ])
+        
+    def forward(self, x):
+        
+        # assuming x is a list of one-hot tokenized reviews
+        x = self.pad_reviews(x)
+        x = [review_block(x_i) for x_i, review_block in zip(x, self.review_blocks)]
+        return x
+    
+    def pad_reviews(self, x):
+        
+        padded_x = ['pad' for _ in range(self.n_reviews)]
+        padded_x[:min(len(x), self.n_reviews)] = x[:min(len(x), self.n_reviews)]
+        return padded_x
