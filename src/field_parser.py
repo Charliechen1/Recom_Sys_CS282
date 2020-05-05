@@ -1,4 +1,4 @@
-import pandas as pd
+import re
 
 parser_register = dict()
 
@@ -13,6 +13,10 @@ def register(func):
 @register
 def parse_title(ftr):
     if not ftr: return ""
+    if 'getTime' in ftr:
+        titles = re.findall(r'\nAmazon.com: ([^\n]+)\n', ftr)
+        if len(titles) > 0:
+            return titles[0]
     return ftr
 
 @register
@@ -36,8 +40,8 @@ def parse_also_buy(ftr):
 
 @register
 def parse_description(ftr):
-    if not ftr: return []
-    return ftr
+    if not ftr: return ""
+    return ' '.join(ftr)
 
 @register
 def parse_reviewerName(ftr):
