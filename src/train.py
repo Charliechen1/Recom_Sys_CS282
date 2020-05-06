@@ -111,10 +111,11 @@ x = list(range(no_of_iter))
 plt.plot(x, loss_track)
 plt.savefig('loss.jpg')
 
-
-test_size = 1000
+# start testing
+test_size = 200
 test_idx_batch = r.get_batch_bikey(test_size, from_train=False)
 text, bop, rev, target = prepare_batch_data(test_idx_batch)
+model.eval()
 res = model(text, bop, rev)
 loss = criterion(res, target)
 

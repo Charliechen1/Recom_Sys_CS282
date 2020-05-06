@@ -151,11 +151,11 @@ class ReviewGRU(nn.Module):
         if rnn_type=='GRU':
             self.rnn = nn.GRU(embed_dim, rnn_hid_dim,
                           num_layers=rnn_num_layers,
-                          batch_first = True)
+                          batch_first = True, bidirectional=True)
         else:
             self.rnn = nn.LSTM(embed_dim, rnn_hidden_dim,
                                num_layers=rnn_num_layers,
-                               batch_first=True)
+                               batch_first=True, bidirectional=True)
 
 
     def forward(self, x):

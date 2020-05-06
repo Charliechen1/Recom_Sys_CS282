@@ -6,14 +6,14 @@ embedding_type = 'bert'
 rnn_type = 'GRU'
 fm_type = 'fm'
 batch_size = 16
-n_reviews = 10
+n_reviews = 5
 seq_len = 100
 fm_n = 2000
 fm_embed_dim = 16
 n_head = 12
 d_k = d_v = 64
 n_rnn = 1
-rnn_hidden_dim = 200
+rnn_hidden_dim = 400
 
 # training setting
 to_gpu=True

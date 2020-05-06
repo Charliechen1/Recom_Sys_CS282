@@ -10,7 +10,7 @@ class SelfAttnDSSM(nn.Module):
     """
     Idea from paper: "A Hierarchical Attention Retrieval Model for Healthcare Question Answering"
     """
-    def __init__(self, d_model, d_inner, n_head, n_sen, d_k, d_v, dropout=0.1):
+    def __init__(self, d_model, d_inner, n_head, n_sen, seq_len, d_k, d_v, dropout=0.1):
         super(SelfAttnDSSM, self).__init__()
         self.query_self_attn = EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout)
 
@@ -23,8 +23,15 @@ class SelfAttnDSSM(nn.Module):
             EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
             for _ in range(n_sen)
         ])
+        
+        self.doc_linear_blocks = nn.ModuleList([
+            nn.Linear(seq_len, 1) for _ in range(n_sen)
+        ])
 
         self.doc_high_self_attn = EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout)
+        
+        self.doc_linear = nn.Linear(n_sen, 1)
+        self.que_linear = nn.Linear(seq_len, 1)
 
     def forward(self, query, document):
 
@@ -36,18 +43,18 @@ class SelfAttnDSSM(nn.Module):
                              for idx, cros_attn_layer in enumerate(self.cros_attn_blocks)]
 
         # sen_no * (batch_size, seq_len, emb_size) -> sen_no * (batch_size, emb_size)
-        doc_cros_attn_res = [attn_res.mean(1) for attn_res in doc_cros_attn_res]
+        doc_cros_attn_res = [doc_linear_block(attn_res.transpose(1, 2)).squeeze() \
+                            for attn_res, doc_linear_block in zip(doc_cros_attn_res, self.doc_linear_blocks)]
 
         # sen_no * (batch_size, emb_size) -> (sen_no, batch_size, emb_size)
         doc_cros_attn_res = torch.stack(doc_cros_attn_res)
         # (sen_no, batch_size, emb_size) -> (batch_size, sen_no, emb_size)
         doc_cros_attn_res = doc_cros_attn_res.transpose(0, 1)
-
         doc_self_attn_res, _ = self.doc_high_self_attn(doc_cros_attn_res)
 
         # (batch_size, sen_no, emb_size) -> (batch_size, emb_size)
-        doc_self_attn_res = doc_self_attn_res.mean(1)
-        query_self_attn_res = query_self_attn_res.mean(1)
+        doc_self_attn_res = self.doc_linear(doc_self_attn_res.transpose(1, 2)).squeeze()
+        query_self_attn_res = self.que_linear(query_self_attn_res.transpose(1, 2)).squeeze()
 
         # element wize
         dssm_out = doc_self_attn_res * query_self_attn_res
@@ -85,10 +92,12 @@ class ProductTower(nn.Module):
         self.embed_model = embed_model
         if rnn_type == 'GRU':
             self.rnn = nn.GRU(embed_dim, rnn_hidden_dim,
-                              rnn_num_layers, batch_first=True)
+                              rnn_num_layers, batch_first=True, 
+                              bidirectional=True)
         else:
             self.rnn = nn.LSTM(embed_dim, rnn_hidden_dim,
-                            batch_first=True, num_layers=rnn_num_layers)
+                            batch_first=True, num_layers=rnn_num_layers, 
+                            bidirectional=True)
         self.fm = fm.FactorizationMachineModel(fm_field_dims, fm_embed_dim)
 
     def forward(self, text, bop):
