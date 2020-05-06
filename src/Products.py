@@ -2,10 +2,12 @@ import numpy as np
 import gzip
 import json
 import os.path
-from src.field_parser import parser_register
-from src.field_reducer import reducer_register
+from field_parser import parser_register
+from field_reducer import reducer_register
 from collections import defaultdict
 from random import sample
+import torch
+
 
 class Products:
     def __init__(self, domain_name):
@@ -95,6 +97,27 @@ class Products:
 
     def get_batch(self, batch_size):
         return sample(self.data_storage, batch_size)
+
+
+def prepare_prod_batch(prod_batch, tokenizer, max_len):
+    encoded_texts = []
+    bops = []
+
+    for prod in prod_batch:
+        # text part
+        text = f"title: {prod['title']}, description: {prod['description']}"
+        encoded_text = tokenizer.encode(text, max_length=max_len, pad_to_max_length=True)
+        encoded_texts.append(encoded_text)
+
+        # BoP part
+        bop = np.concatenate((prod['also_view_bag_of_prod'], prod['also_view_bag_of_prod']), axis=0)
+        bops.append(bop)
+
+    text_tensor = torch.tensor(encoded_texts)
+    bop_tensor = torch.from_numpy(np.stack(bops, axis=0)).long()
+
+    return text_tensor, bop_tensor
+
 
 if __name__ == '__main__':
     products = Products("AMAZON_FASHION")
