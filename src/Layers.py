@@ -27,16 +27,7 @@ class SelfAttnDSSM(nn.Module):
         self.doc_high_self_attn = EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout)
 
     def forward(self, query, document):
-        
-        # query is the embedding for product title, with size (batch_size, seq_len, emb_size)
-        # document should be a list of tensor with size (batch_size, seq_len, emb_size)
-        query_self_attn_res = self.query_self_attn(query)
 
-        doc_cros_attn_res = [cros_attn_layer(query, document[idx]) \
-                             for idx, cros_attn_layer in enumerate(self.cros_attn_blocks)]
-
-        # sen_no * (batch_size, seq_len, emb_size) -> sen_no * (batch_size, emb_size)
-        doc_cros_attn_res = [attn_res.mean(1) for attn_res in doc_attn_res]
         # query is the embedding for product title, with size (batch_size, seq_len, emb_size)
         # document should be a list of tensor with size (batch_size, seq_len, emb_size)
         query_self_attn_res, _ = self.query_self_attn(query)
@@ -52,7 +43,6 @@ class SelfAttnDSSM(nn.Module):
         # (sen_no, batch_size, emb_size) -> (batch_size, sen_no, emb_size)
         doc_cros_attn_res = doc_cros_attn_res.transpose(0, 1)
 
-        doc_self_attn_res = self.doc_high_self_attn(doc_cros_attn_res)
         doc_self_attn_res, _ = self.doc_high_self_attn(doc_cros_attn_res)
 
         # (batch_size, sen_no, emb_size) -> (batch_size, emb_size)
@@ -65,39 +55,25 @@ class SelfAttnDSSM(nn.Module):
 
 
 class ReviewTower(nn.Module):
-    
-    def __init__(self, input_dim, embedding_type, n_reviews):
+
+    def __init__(self, embedding, embed_dim, rnn_hid_dim, rnn_num_layers, n_reviews):
         super(ReviewTower, self).__init__()
-        
+
         self.n_reviews = n_reviews
-        
-        self.tokenizer, self.embedding, self.embed_dim = get_embed_layer(embedding_type) 
-        
+        self.embedding = embedding
+        self.embed_dim = embed_dim
+
         self.review_blocks = nn.ModuleList([
-            ReviewGRU(input_dim, self.embed_dim, self.embedding) for _ in range(n_reviews)
+            ReviewGRU(embed_dim, rnn_hid_dim, rnn_num_layers, embedding)
+            for _ in range(n_reviews)
         ])
-        
+
     def forward(self, reviews):
-        
-        reviews = self.pad_reviews(reviews)
-        reviews = [self.preprocess_review(rev_text) for rev_text in reviews]
-        reviews = [review_block(review) for review, review_block in zip(reviews, self.review_blocks)]
+        reviews = [review_block(review) \
+                   for review, review_block in zip(reviews, self.review_blocks)]
         return reviews
-    
-    def preprocess_review(self, text):
-        
-        tokens = self.tokenizer.tokenize(text)
-        ids = self.tokenizer.convert_tokens_to_ids(tokens)
-        return torch.LongTensor(ids)
-    
-    def pad_reviews(self, reviews):
-        
-        padded_reviews = ['' for _ in range(self.n_reviews)]
-        padded_reviews[:min(len(reviews), self.n_reviews)] = reviews[:min(len(reviews), self.n_reviews)]
-        return padded_reviews
-        
-        
-        
+
+
 class ProductTower(nn.Module):
     def __init__(self, embed_model, embed_dim,
                  rnn_hidden_dim, rnn_num_layers,
@@ -108,9 +84,11 @@ class ProductTower(nn.Module):
         super(ProductTower, self).__init__()
         self.embed_model = embed_model
         if rnn_type == 'GRU':
-            self.rnn = nn.GRU(embed_dim, rnn_hidden_dim, rnn_num_layers, batch_first=True)
+            self.rnn = nn.GRU(embed_dim, rnn_hidden_dim,
+                              rnn_num_layers, batch_first=True)
         else:
-            self.rnn = nn.LSTM(embed_dim, rnn_hidden_dim, batch_first=True, num_layers=rnn_num_layers)
+            self.rnn = nn.LSTM(embed_dim, rnn_hidden_dim,
+                            batch_first=True, num_layers=rnn_num_layers)
         self.fm = fm.FactorizationMachineModel(fm_field_dims, fm_embed_dim)
 
     def forward(self, text, bop):
@@ -120,4 +98,3 @@ class ProductTower(nn.Module):
 
         return rnn_out, fm_out
 
-# TODO: Add Review side model here

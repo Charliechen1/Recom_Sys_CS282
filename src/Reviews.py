@@ -1,11 +1,13 @@
 import json
 import os
 import gzip
-from src.field_parser import parser_register
-from src.field_reducer import reducer_register
+from field_parser import parser_register
+from field_reducer import reducer_register
 from collections import defaultdict
 from random import sample
 from sklearn.model_selection import train_test_split
+import torch
+import numpy as np
 
 class Reviews:
     def __init__(self, domain_name):
@@ -69,8 +71,11 @@ class Reviews:
             data_idx_list = self.idx2rev[rev_idx]
         else:
             data_idx_list = self.biidx2rat[f'{rev_idx}_{pro_idx}']
-        return [self.data_storage[idx]
+        reviews= [self.data_storage[idx]
                   for idx in data_idx_list]
+        # reviews are sorted by their time
+        reviews.sort(key=lambda x: x['unixReviewTime'])
+        return reviews
 
     def get_all_rev_idx(self):
         return list(self.idx2rev.keys())
@@ -97,6 +102,23 @@ class Reviews:
         self.idx_train = idx_train
         self.idx_test = idx_test
         return idx_train, idx_test
+
+
+def pad_reviews(reviews, n_reviews):
+    padded_reviews = ['' for _ in range(n_reviews)]
+    padded_reviews[:min(len(reviews), n_reviews)] = reviews[:min(len(reviews), n_reviews)]
+    return padded_reviews
+
+def prepare_rev_batch(rev_batch, tokenizer, n_reviews, max_len):
+    reviews_batch = [[rev['reviewText'] for rev in rev_list] for rev_list in rev_batch]
+    reviews_pad = [pad_reviews(reviews, n_reviews) for reviews in reviews_batch]
+    enc_reviews = [[tokenizer.encode(rev, max_length=max_len, pad_to_max_length=True) \
+                    for rev in rev_list] for rev_list in reviews_pad]
+
+    enc_reviews = np.array(enc_reviews)
+    enc_reviews = np.transpose(enc_reviews, (1, 0, 2))
+    enc_reviews = [torch.tensor(rev_list).long() for rev_list in enc_reviews]
+    return enc_reviews
 
 if __name__ == '__main__':
     #r = Reviews('AMAZON_FASHION')

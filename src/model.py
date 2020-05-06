@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from src.Layers import SelfAttnDSSM, ProductTower
+from Layers import SelfAttnDSSM, ProductTower, ReviewTower
+from conf import *
 
 class RecomModel(nn.Module):
     def __init__(self, rnn_hid_dim, d_inner,
@@ -26,24 +27,24 @@ class RecomModel(nn.Module):
                                           fm_field_dims,
                                           fm_embed_dim,
                                           )
-        #TODO add model for review side here
-
+        self.review_tower = ReviewTower(embed_model, lm_embed_dim,
+                                        rnn_hid_dim, n_rnn, n_sen)
 
         self.dssm = SelfAttnDSSM(rnn_hid_dim, rnn_hid_dim,
                                  n_head, n_sen,
                                  d_k, d_v,
                                  dropout)
+        self.linear = nn.Linear(1 + rnn_hid_dim, 1)
 
-
-    def forward(self, review, rev_bop):
-        bc_size = review.shape[0]
-        query, fm_out = self.product_tower(review, rev_bop)
-
-        # TODO: trivial document: for test purpose, replace by true review side model later
-        document = [torch.zeros(bc_size, self.pad_len, self.rnn_hid_dim)\
-                    for _ in range(self.n_sen)]
-
+    def forward(self, product, prod_bop, reviews):
+        bc_size = product.shape[0]
+        query, fm_out = self.product_tower(product, prod_bop)
+        document = self.review_tower(reviews)
         dssm_out = self.dssm(query, document)
 
-        return dssm_out
+        cat_tensor = torch.cat((dssm_out, fm_out.unsqueeze(1)), dim=1)
+        if to_gpu:
+            cat_tensor = cat_tensor.cuda()
+        res = self.linear(cat_tensor)
+        return res
 

@@ -2,8 +2,8 @@ import numpy as np
 import gzip
 import json
 import os.path
-from src.field_parser import parser_register
-from src.field_reducer import reducer_register
+from field_parser import parser_register
+from field_reducer import reducer_register
 from collections import defaultdict
 from random import sample
 import torch
@@ -99,14 +99,14 @@ class Products:
         return sample(self.data_storage, batch_size)
 
 
-def prepare_prod_batch(prod_batch, tokenizer):
+def prepare_prod_batch(prod_batch, tokenizer, max_len):
     encoded_texts = []
     bops = []
 
     for prod in prod_batch:
         # text part
         text = f"title: {prod['title']}, description: {prod['description']}"
-        encoded_text = tokenizer.encode(text, max_length=100, pad_to_max_length=True)
+        encoded_text = tokenizer.encode(text, max_length=max_len, pad_to_max_length=True)
         encoded_texts.append(encoded_text)
 
         # BoP part

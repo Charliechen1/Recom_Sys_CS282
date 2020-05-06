@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from conf import *
 
 """
 modified from https://github.com/jadore801120/attention-is-all-you-need-pytorch.git
@@ -141,15 +142,24 @@ class ScaledDotProductAttention(nn.Module):
         return output, attn
 
 class ReviewGRU(nn.Module):
-    
-    def __init__(self, input_dim, embedding_dim, embedding):
+
+    def __init__(self, embed_dim, rnn_hid_dim, rnn_num_layers, embedding):
         super().__init__()
-        
+
         self.embedding = embedding
-        self.gru = nn.GRU(embedding_dim, embedding_dim, batch_first = True, bidirectional = True)
-        
+
+        if rnn_type=='GRU':
+            self.rnn = nn.GRU(embed_dim, rnn_hid_dim,
+                          num_layers=rnn_num_layers,
+                          batch_first = True)
+        else:
+            self.rnn = nn.LSTM(embed_dim, rnn_hidden_dim,
+                               num_layers=rnn_num_layers,
+                               batch_first=True)
+
+
     def forward(self, x):
-        
+
         x = self.embedding(x)
-        x, _ = self.gru(x.unsqueeze(0))
+        x, _ = self.rnn(x)
         return x
