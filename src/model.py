@@ -39,12 +39,11 @@ class RecomModel(nn.Module):
     def forward(self, product, prod_bop, reviews):
         bc_size = product.shape[0]
         query, fm_out = self.product_tower(product, prod_bop)
+        
         document = self.review_tower(reviews)
         dssm_out = self.dssm(query, document)
 
         cat_tensor = torch.cat((dssm_out, fm_out.unsqueeze(1)), dim=1)
-        if to_gpu:
-            cat_tensor = cat_tensor.cuda()
         res = self.linear(cat_tensor)
         return res
 

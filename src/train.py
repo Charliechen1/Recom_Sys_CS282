@@ -36,11 +36,15 @@ def prepare_batch_data(idx_batch):
                    for rev_idx, pro_idx in zip(rev_idx_batch, prod_idx_batch)]
 
     target = torch.tensor(score_batch).float()
-    if to_gpu:
-        target = target.cuda()
 
     text, bop = prepare_prod_batch(prod_batch, tokenizer, seq_len)
     rev = prepare_rev_batch(rev_batch, tokenizer, n_reviews, seq_len)
+    
+    if to_gpu:
+        target = target.cuda()
+        text = text.cuda()
+        bop = bop.cuda()
+        rev = [r.cuda() for r in rev]
     
     return text, bop, rev, target
 
@@ -92,11 +96,6 @@ for no in range(no_of_iter):
     
     train_idx_batch = r.get_batch_bikey(batch_size, from_train=False)
     text, bop, rev, target = prepare_batch_data(train_idx_batch)
-    
-    if to_gpu:
-        text = text.cuda()
-        bop = bop.cuda()
-        rev = [r.cuda() for r in rev]
 
     res = model(text, bop, rev)
     loss = criterion(res, target)
@@ -112,7 +111,6 @@ plt.plot(x, loss_track)
 plt.savefig('loss.jpg')
 
 # start testing
-test_size = 200
 test_idx_batch = r.get_batch_bikey(test_size, from_train=False)
 text, bop, rev, target = prepare_batch_data(test_idx_batch)
 model.eval()
@@ -120,4 +118,7 @@ res = model(text, bop, rev)
 loss = criterion(res, target)
 
 logger.info(f'testing loss: {loss:.4}')
+
+print(res)
+print(target)
 
