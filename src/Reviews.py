@@ -26,7 +26,7 @@ class Reviews:
 
         self.idx_train = []
         self.idx_test = []
-        self._load_data(f'data/{domain_name}.json.gz')
+        self._load_data(f'../data/{domain_name}.json.gz')
 
     def _load_data(self, data_file_name):
         if not os.path.isfile(data_file_name):

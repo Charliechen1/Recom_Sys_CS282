@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import numpy as np
+
 import logging
 import sys
 import matplotlib.pyplot as plt
@@ -13,6 +15,10 @@ from model import RecomModel
 from conf import *
 
 # initialize logger
+def init_weights(m):
+    if type(m) == nn.Linear:
+        torch.nn.init.xavier_uniform(m.weight)
+        
 def parse_logger(string=''):
     if not string:
         ret = logging.getLogger('stdout')
@@ -30,12 +36,13 @@ def prepare_batch_data(idx_batch):
     rev_idx_batch = [p[0] for p in idx_batch]
     prod_idx_batch = [p[1] for p in idx_batch]
 
-    rev_batch = [r.get_reviews(idx) for idx in rev_idx_batch]
+    # rev_batch = [r.get_reviews(idx) for idx in rev_idx_batch]
+    rev_batch = [r.get_reviews(rev_idx, prod_idx) for rev_idx, prod_idx in zip(rev_idx_batch, prod_idx_batch)]
     prod_batch = [p.get_product(idx, reduce=True) for idx in prod_idx_batch]
-    score_batch = [r.get_rating(rev_idx, pro_idx, True)[0]\
+    score_batch = [r.get_rating(rev_idx, pro_idx, True)[0] > cls_thre\
                    for rev_idx, pro_idx in zip(rev_idx_batch, prod_idx_batch)]
 
-    target = torch.tensor(score_batch).float()
+    target = torch.tensor(score_batch).long()
 
     text, bop = prepare_prod_batch(prod_batch, tokenizer, seq_len)
     rev = prepare_rev_batch(rev_batch, tokenizer, n_reviews, seq_len)
@@ -74,6 +81,8 @@ model = RecomModel(rnn_hidden_dim, rnn_hidden_dim,
                    rnn_type=rnn_type,
                    fm_type=fm_type,
                    dropout=0.1,)
+                   
+model.apply(init_weights)
 
 if to_gpu:
     to_index = cuda_index
@@ -85,10 +94,11 @@ if to_gpu:
 
 logger.info(f"Model is on gpu: {next(model.parameters()).is_cuda}")
 
-criterion = nn.MSELoss()
+#criterion = nn.MSELoss()
+criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-loss_track = []
 
+loss_track, acc_track = [], []
 
 logger.info('start training')
 for no in range(no_of_iter):
@@ -99,16 +109,25 @@ for no in range(no_of_iter):
 
     res = model(text, bop, rev)
     loss = criterion(res, target)
-
-    loss_track.append(loss)
-    logger.info(f'{no}/{no_of_iter} of iterations, current loss: {loss:.4}')
-
+    
+    pred = torch.max(res, 1)[1]
+    
+    train_acc = np.sum(np.array(pred.tolist()) == np.array(target.tolist())) / batch_size
+    
+    logger.info(f'{no}/{no_of_iter} of iterations, current loss: {loss:.4}, current acc: {train_acc:.2%}')
     loss.backward()
     optimizer.step()
+    
+    loss_track.append(loss)
+    acc_track.append(train_acc)
 
 x = list(range(no_of_iter))
-plt.plot(x, loss_track)
-plt.savefig('loss.jpg')
+fig, axs = plt.subplots(2)
+axs[0].plot(x, acc_track)
+axs[0].set_title('Training acc')
+axs[1].plot(x, loss_track)
+axs[1].set_title('Loss value')
+plt.savefig('training_record.jpg')
 
 # start testing
 test_idx_batch = r.get_batch_bikey(test_size, from_train=False)

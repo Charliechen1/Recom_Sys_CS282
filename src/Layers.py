@@ -6,6 +6,29 @@ from Sublayers import EncoderLayer, DecoderLayer, ReviewGRU
 from embeddings import get_embed_layer
 import torchfm.model.fm as fm
 
+class DNNDSSM(nn.Module):
+    def __init__(self, d_model, seq_len, dropout=0.1):
+        super(DNNDSSM, self).__init__()
+        self.dropout = dropout
+        self.act = nn.ReLU()
+        self.doclinear = nn.Linear(seq_len, 1)
+        self.quelinear = nn.Linear(seq_len, 1)
+        self.catlinear1 = nn.Linear(d_model * 2, d_model * 2)
+        self.catlinear2 = nn.Linear(d_model * 2, d_model * 2)
+        
+    def forward(self, query, document):
+        query = query.squeeze().transpose(1, 2)
+        document = torch.stack(document).squeeze().transpose(1, 2)
+        
+        query = self.act(self.quelinear(query)).squeeze()
+        document = self.act(self.doclinear(document)).squeeze()
+        
+        res = torch.cat((query, document), dim=1)
+        res = res + self.act(self.catlinear1(res))
+        res = res + self.act(self.catlinear2(res))
+        
+        return res
+    
 class SelfAttnDSSM(nn.Module):
     """
     Idea from paper: "A Hierarchical Attention Retrieval Model for Healthcare Question Answering"
@@ -43,7 +66,7 @@ class SelfAttnDSSM(nn.Module):
                              for idx, cros_attn_layer in enumerate(self.cros_attn_blocks)]
 
         # sen_no * (batch_size, seq_len, emb_size) -> sen_no * (batch_size, emb_size)
-        doc_cros_attn_res = [doc_linear_block(attn_res.transpose(1, 2)).squeeze() \
+        doc_cros_attn_res = [F.relu(doc_linear_block(attn_res.transpose(1, 2))).squeeze() \
                             for attn_res, doc_linear_block in zip(doc_cros_attn_res, self.doc_linear_blocks)]
 
         # sen_no * (batch_size, emb_size) -> (sen_no, batch_size, emb_size)
@@ -53,8 +76,8 @@ class SelfAttnDSSM(nn.Module):
         doc_self_attn_res, _ = self.doc_high_self_attn(doc_cros_attn_res)
 
         # (batch_size, sen_no, emb_size) -> (batch_size, emb_size)
-        doc_self_attn_res = self.doc_linear(doc_self_attn_res.transpose(1, 2)).squeeze()
-        query_self_attn_res = self.que_linear(query_self_attn_res.transpose(1, 2)).squeeze()
+        doc_self_attn_res = F.relu(self.doc_linear(doc_self_attn_res.transpose(1, 2))).squeeze()
+        query_self_attn_res = F.relu(self.que_linear(query_self_attn_res.transpose(1, 2))).squeeze()
 
         # element wize
         dssm_out = doc_self_attn_res * query_self_attn_res
@@ -106,4 +129,3 @@ class ProductTower(nn.Module):
         fm_out = self.fm(bop)
 
         return rnn_out, fm_out
-
