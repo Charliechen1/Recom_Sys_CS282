@@ -1,56 +1,55 @@
 import numpy as np
-from keras.preprocessing.sequence import pad_sequences
-from nltk import word_tokenize
 import gensim
-
+from gensim.scripts.glove2word2vec import glove2word2vec
+from transformers import *
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
 MAX_SEQUENCE_LENGTH = 100
 
-# Instead of return embedded vectors, return weights for embedding
-class Embedding:
-    
-    def __init__(self, method='glove'):
-        self.method = method
-        if method == 'glove':
-            self.glove_embeddings = {}
-            with open('../data/glove_6B/glove.6B.50d.txt') as f:
-                for line in f:
-                    values = line.split(' ')
-                    self.glove_embeddings[values[0]] = np.array(values[1:], dtype = np.float32)
-            self.embed_dim = 50
+class Tokenizer:
+    def __init__(self, vocab_table):
+        self.vocab_table = vocab_table
 
-        elif method == 'word2vec':
-            self.word2vec_model = gensim.models.KeyedVectors.load_word2vec_format('GoogleNews-vectors-negative300.bin', binary=True)
-            self.embed_dim = 300
+    def tokenize(self, text):
+        tokens = gensim.utils.tokenize(text, lowercase=True)
+        res = ['pad'] * MAX_SEQUENCE_LENGTH
+        res[:min(MAX_SEQUENCE_LENGTH, len(tokens))] = tokens[:min(MAX_SEQUENCE_LENGTH, len(tokens))]
+        return res
 
-    def embed(self, text):
-        tokens = word_tokenize(text.lower())
-        tokens = pad_sequences(tokens, maxlen=MAX_SEQUENCE_LENGTH, padding="pre", truncating="post")
-        result = np.array([])
-        if self.method == 'glove':
-            for token in tokens:
-                result = np.vstack((result, self.glove_embeddings[token]))
-
-        elif self.method == 'word2vec':
-            for token in tokens:
-                result = np.vstack((result, self.word2vec_model[token]))
-
-        return torch.from_numpy(result)
+    def convert_tokens_to_ids(self, tokens):
+        idxs = [self.vocab_table[token].index for token in tokens]
+        return idxs
 
 
-class ReviewNN(nn.Module):
-    def __init__(self, weights_matrix, hidden_size, num_layers):
-        super(self).__init__()
-        self.embedding = Embedding('word2vec')
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.gru = nn.GRU(self.embedding.embed_dim, hidden_size, num_layers, batch_first=True)
+def get_embed_layer(method = 'word2vec'):
+    if method == 'glove':
+        glove_input_file = '../data/glove.6B/glove.6B.100d.txt'
+        word2vec_output_file = '../data/glove.6B/glove.6B.100d.txt.word2vec'
+        glove2word2vec(glove_input_file, word2vec_output_file)
+        glove_model = gensim.models.KeyedVectors.load_word2vec_format(word2vec_output_file, binary=False)
+        embed_dim = 100
+        embedding = nn.Embedding.from_pretrained(torch.FloatTensor(glove_model.vectors))
+        tokenizer = Tokenizer(glove_model.vocab)
+        return tokenizer, embedding, embed_dim
 
-    def forward(self, reviews, hidden):
-        return self.gru(self.embedding.embed(reviews), hidden)
+    elif method == 'word2vec':
+        word2vec_model = gensim.models.KeyedVectors.load_word2vec_format('../data/GoogleNews-vectors-negative300.bin',
+                                                                              binary=True)
+        embed_dim = 300
+        embedding = nn.Embedding.from_pretrained(torch.FloatTensor(word2vec_model.vectors))
+        tokenizer = Tokenizer(word2vec_model.vocab)
+        return tokenizer, embedding, embed_dim
 
-    def init_hidden(self, batch_size):
-        return Variable(torch.zeros(self.num_layers, batch_size, self.hidden_size))
+
+    elif method == 'bert':
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        model = BertModel.from_pretrained('bert-base-uncased')
+        embed_dim = 768
+        model.eval()
+        return tokenizer, model.embeddings.word_embeddings, embed_dim
+
+
+
+
