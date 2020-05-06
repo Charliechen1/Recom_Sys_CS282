@@ -13,7 +13,7 @@ class Tokenizer:
         self.vocab_table = vocab_table
 
     def tokenize(self, text):
-        tokens = gensim.utils.tokenize(text, lowercase=True)
+        tokens = list(gensim.utils.tokenize(text, lowercase=True))
         res = ['pad'] * MAX_SEQUENCE_LENGTH
         res[:min(MAX_SEQUENCE_LENGTH, len(tokens))] = tokens[:min(MAX_SEQUENCE_LENGTH, len(tokens))]
         return res
