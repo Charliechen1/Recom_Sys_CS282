@@ -24,6 +24,25 @@ def parse_logger(string=''):
     ret.addHandler(hdlr)
     hdlr.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
     return ret
+   
+def prepare_batch_data(idx_batch):
+
+    rev_idx_batch = [p[0] for p in idx_batch]
+    prod_idx_batch = [p[1] for p in idx_batch]
+
+    rev_batch = [r.get_reviews(idx) for idx in rev_idx_batch]
+    prod_batch = [p.get_product(idx, reduce=True) for idx in prod_idx_batch]
+    score_batch = [r.get_rating(rev_idx, pro_idx, True)[0]\
+                   for rev_idx, pro_idx in zip(rev_idx_batch, prod_idx_batch)]
+
+    target = torch.tensor(score_batch).float()
+    if to_gpu:
+        target = target.cuda()
+
+    text, bop = prepare_prod_batch(prod_batch, tokenizer, seq_len)
+    rev = prepare_rev_batch(rev_batch, tokenizer, n_reviews, seq_len)
+    
+    return text, bop, rev, target
 
 logger = parse_logger()
 logger.setLevel(logging.INFO)
@@ -66,26 +85,14 @@ criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 loss_track = []
 
+
 logger.info('start training')
 for no in range(no_of_iter):
     model.zero_grad()
-    train_idx_batch = r.get_batch_bikey(batch_size, from_train=True)
-
-    train_rev_idx_batch = [p[0] for p in train_idx_batch]
-    train_prod_idx_batch = [p[1] for p in train_idx_batch]
-
-    train_rev_batch = [r.get_reviews(idx) for idx in train_rev_idx_batch]
-    train_prod_batch = [p.get_product(idx, reduce=True) for idx in train_prod_idx_batch]
-    score_batch = [r.get_rating(rev_idx, pro_idx, True)[0]\
-                   for rev_idx, pro_idx in zip(train_rev_idx_batch, train_prod_idx_batch)]
-
-    target = torch.tensor(score_batch).float()
-    if to_gpu:
-        target = target.cuda()
-
-    text, bop = prepare_prod_batch(train_prod_batch, tokenizer, seq_len)
-    rev = prepare_rev_batch(train_rev_batch, tokenizer, n_reviews, seq_len)
-
+    
+    train_idx_batch = r.get_batch_bikey(batch_size, from_train=False)
+    text, bop, rev, target = prepare_batch_data(train_idx_batch)
+    
     if to_gpu:
         text = text.cuda()
         bop = bop.cuda()
@@ -103,4 +110,13 @@ for no in range(no_of_iter):
 x = list(range(no_of_iter))
 plt.plot(x, loss_track)
 plt.savefig('loss.jpg')
+
+
+test_size = 1000
+test_idx_batch = r.get_batch_bikey(test_size, from_train=False)
+text, bop, rev, target = prepare_batch_data(test_idx_batch)
+res = model(text, bop, rev)
+loss = criterion(res, target)
+
+logger.info(f'testing loss: {loss:.4}')
 
