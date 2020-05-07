@@ -4,7 +4,7 @@ import gzip
 from field_parser import parser_register
 from field_reducer import reducer_register
 from collections import defaultdict
-from random import sample
+from random import choices
 from sklearn.model_selection import train_test_split
 import torch
 import numpy as np
@@ -22,7 +22,7 @@ class Reviews:
         self.data_storage = []
         self.bikey_storage = []
 
-        self.interested_fields = ['reviewerName', 'reviewText',
+        self.interested_fields = ['reviewerName', 'reviewText', 'reviewerID', 'asin',
                                   'summary', 'unixReviewTime', 'overall']
 
         self.idx_train = []
@@ -91,11 +91,11 @@ class Reviews:
 
     def get_batch_bikey(self, batch_size, src="train"):
         if src=='train':
-            return sample(self.idx_train, batch_size)
+            return choices(population=self.idx_train, weights=self.weights_train, k=batch_size)
         elif src=='test':
-            return sample(self.idx_test, batch_size)
+            return choices(population=self.idx_test, weights=self.weights_test, k=batch_size)
         else:
-            return sample(self.idx_valid, batch_size)
+            return choices(population=self.idx_valid, weights=self.weights_valid, k=batch_size)
 
     def get_all_bi_idx(self):
         return self.bikey_storage
@@ -113,6 +113,12 @@ class Reviews:
         self.idx_train = idx_train
         self.idx_test = idx_test
         self.idx_valid = idx_valid
+        
+        # reduce the preference to product with more reviews
+        self.weights_train = [1/len(self.pro2rev[idx[1]]) for idx in idx_train]
+        self.weights_test = [1/len(self.pro2rev[idx[1]]) for idx in idx_test]
+        self.weights_valid = [1/len(self.pro2rev[idx[1]]) for idx in idx_valid]
+        
         return idx_train, idx_test
 
 

@@ -95,3 +95,13 @@ def parse_style(ftr):
     res['style'] = ftr.get('Style:', '').strip()
 
     return res
+    
+@register
+def parse_asin(ftr):
+    if not ftr: return ""
+    return ftr
+    
+@register
+def parse_reviewerID(ftr):
+    if not ftr: return ""
+    return ftr

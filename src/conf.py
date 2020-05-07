@@ -1,7 +1,7 @@
 # data setting
 #domain = 'AMAZON_FASHION'
-#domain = 'Gift_Cards'
-domain = 'Video_Games'
+domain = 'Gift_Cards'
+#domain = 'Video_Games'
 #domain = 'Movies_and_TV'
 
 # model setting
