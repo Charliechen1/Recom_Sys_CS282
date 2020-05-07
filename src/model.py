@@ -38,25 +38,25 @@ class RecomModel(nn.Module):
         self.review_net = DocumentNet(embed_model, lm_embed_dim,
                                         rnn_hid_dim, n_rnn, n_sen)
 
-        #self.dssm = SelfAttnDSSM(rnn_hid_dim * 2, rnn_hid_dim,
-        #                         n_head, n_sen, seq_len,
-        #                         d_k, d_v,
-        #                         dropout)
-        self.dssm = DNNDSSM(rnn_hid_dim * 2, seq_len, n_sen, dropout)
+        self.dssm = SelfAttnDSSM(rnn_hid_dim * 2, rnn_hid_dim,
+                                 n_head, n_sen, seq_len,
+                                 d_k, d_v,
+                                 dropout)
+        #self.dssm = DNNDSSM(rnn_hid_dim * 2, seq_len, n_sen, dropout)
         self.cls_linear1 = nn.Linear(rnn_hid_dim * 4, rnn_hid_dim * 4)
         self.cls_linear2 = nn.Linear(rnn_hid_dim * 4, rnn_hid_dim * 4)
         self.cls_linear3 = nn.Linear(rnn_hid_dim * 4, 1)
         
 
-    #def forward(self, product, prod_bop, reviews):
     def forward(self, product, reviews):
         pro = self.product_net(product)
         rev = self.review_net(reviews)
         
         dssm_out = self.dssm(pro, rev)
         
-        res = self.act(self.cls_linear1(dssm_out))
-        res = self.act(self.cls_linear2(res))
+        # feedforward part
+        res = dssm_out + self.act(self.cls_linear1(dssm_out))
+        res = res + self.act(self.cls_linear2(res))
         res = self.cls_linear3(res)
         return res
 

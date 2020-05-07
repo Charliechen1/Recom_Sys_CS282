@@ -31,8 +31,6 @@ class DNNDSSM(nn.Module):
         document = self.act(self.doclinear(document)).squeeze()
         
         res = torch.cat((query, document), dim=1)
-        res = res + self.act(self.catlinear1(res))
-        res = res + self.act(self.catlinear2(res))
         
         return res
     
@@ -42,53 +40,106 @@ class SelfAttnDSSM(nn.Module):
     """
     def __init__(self, d_model, d_inner, n_head, n_sen, seq_len, d_k, d_v, dropout=0.1):
         super(SelfAttnDSSM, self).__init__()
-        self.query_self_attn = EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout)
-
+        # both query and document are with size:
+        # sen_no * (batch_size, seq_len, emb_size)
+        
+        # Just for cross attention:
+        # query: sen_no * (batch_size, seq_len, emb_size) -> (batch_size, seq_len, emb_size)
+        self.que_sen_linear = nn.Linear(n_sen, 1)
+        
+        # apply cross attention of query to document
+        # document: sen_no * (batch_size, seq_len, emb_size) unchanged
         self.cros_attn_blocks = nn.ModuleList([
             DecoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
             for _ in range(n_sen)
         ])
-
+        
+        # query: sen_no * (batch_size, seq_len, emb_size) unchanged
+        self.que_self_attn_blocks = nn.ModuleList([
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
+            for _ in range(n_sen)
+        ])
+        
+        # document: sen_no * (batch_size, seq_len, emb_size) unchanged
         self.doc_self_attn_blocks = nn.ModuleList([
             EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
             for _ in range(n_sen)
         ])
         
+        # document: sen_no * (batch_size, seq_len, emb_size) -> sen_no * (batch_size, emb_size)
         self.doc_linear_blocks = nn.ModuleList([
             nn.Linear(seq_len, 1) for _ in range(n_sen)
         ])
-
+        
+        # query: sen_no * (batch_size, seq_len, emb_size) -> sen_no * (batch_size, emb_size)
+        self.que_linear_blocks = nn.ModuleList([
+            nn.Linear(seq_len, 1) for _ in range(n_sen)
+        ])
+        
+        # document: (batch_size, sen_no, emb_size) unchanged
         self.doc_high_self_attn = EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout)
         
-        self.doc_linear = nn.Linear(n_sen, 1)
-        self.que_linear = nn.Linear(seq_len, 1)
+        # notice there is no que high self attn
+        
+        # document: (batch_size, sen_no, emb_size) -> (batch_size, emb_size)
+        self.doc_emb_linear = nn.Linear(n_sen, 1)
+        
+        # query: (batch_size, sen_no, emb_size) -> (batch_size, emb_size)
+        self.que_emb_linear = nn.Linear(n_sen, 1)
 
     def forward(self, query, document):
-
-        # query is the embedding for product title, with size (batch_size, seq_len, emb_size)
-        # document should be a list of tensor with size (batch_size, seq_len, emb_size)
-        query_self_attn_res, _ = self.query_self_attn(query)
-
-        doc_cros_attn_res = [cros_attn_layer(query, document[idx])[0] \
+        # both query and document are with size:
+        # sen_no * (batch_size, seq_len, emb_size)
+        
+        # from sen_no * (batch_size, seq_len, emb_size)
+        # to (sen_no, batch_size, seq_len, emb_size)
+        # to (emb_size, batch_size, seq_len, sen_no)
+        query_enc = torch.stack(query).transpose(0, 3)
+        
+        # (emb_size, batch_size, seq_len, sen_no) -> (emb_size, batch_size, seq_len)
+        # (emb_size, batch_size, seq_len) -> (batch_size, emb_size, seq_len)
+        # (batch_size, emb_size, seq_len) -> (batch_size, seq_len, emb_size)
+        query_enc = self.que_sen_linear(query_enc).squeeze().transpose(0, 1).transpose(1, 2)
+        
+        # sen_no * (batch_size, seq_len, emb_size)
+        doc_cros_attn_res = [cros_attn_layer(query_enc, document[idx])[0] \
                              for idx, cros_attn_layer in enumerate(self.cros_attn_blocks)]
-
+        
+        # sen_no * (batch_size, seq_len, emb_size) unchanged
+        doc_attn_res = [self_attn_layer(doc_cros_attn_res[idx])[0] \
+                             for idx, self_attn_layer in enumerate(self.doc_self_attn_blocks)]
+        
+        # sen_no * (batch_size, seq_len, emb_size) unchanged
+        que_attn_res = [self_attn_layer(query[idx])[0] \
+                             for idx, self_attn_layer in enumerate(self.que_self_attn_blocks)]
+        
         # sen_no * (batch_size, seq_len, emb_size) -> sen_no * (batch_size, emb_size)
-        doc_cros_attn_res = [F.relu(doc_linear_block(attn_res.transpose(1, 2))).squeeze() \
-                            for attn_res, doc_linear_block in zip(doc_cros_attn_res, self.doc_linear_blocks)]
-
+        doc_attn_res = [F.relu(linear_block(attn_res.transpose(1, 2))).squeeze() \
+                            for attn_res, linear_block in zip(doc_attn_res, self.doc_linear_blocks)]
+        
+        # sen_no * (batch_size, seq_len, emb_size) -> sen_no * (batch_size, emb_size)
+        que_attn_res = [F.relu(linear_block(attn_res.transpose(1, 2))).squeeze() \
+                            for attn_res, linear_block in zip(que_attn_res, self.que_linear_blocks)]
+        
+        
         # sen_no * (batch_size, emb_size) -> (sen_no, batch_size, emb_size)
-        doc_cros_attn_res = torch.stack(doc_cros_attn_res)
+        doc_attn_res = torch.stack(doc_attn_res)
         # (sen_no, batch_size, emb_size) -> (batch_size, sen_no, emb_size)
-        doc_cros_attn_res = doc_cros_attn_res.transpose(0, 1)
-        doc_self_attn_res, _ = self.doc_high_self_attn(doc_cros_attn_res)
-
+        doc_attn_res = doc_attn_res.transpose(0, 1)
+        doc_attn_res, _ = self.doc_high_self_attn(doc_attn_res)
+        
+        # sen_no * (batch_size, emb_size) -> (sen_no, batch_size, emb_size)
+        que_attn_res = torch.stack(que_attn_res)
+        # (sen_no, batch_size, emb_size) -> (batch_size, sen_no, emb_size)
+        que_attn_res = que_attn_res.transpose(0, 1)
+        
+        
         # (batch_size, sen_no, emb_size) -> (batch_size, emb_size)
-        doc_self_attn_res = F.relu(self.doc_linear(doc_self_attn_res.transpose(1, 2))).squeeze()
-        query_self_attn_res = F.relu(self.que_linear(query_self_attn_res.transpose(1, 2))).squeeze()
-
-        # element wize
-        #dssm_out = doc_self_attn_res * query_self_attn_res
-        dssm_out = torch.cat((doc_self_attn_res, query_self_attn_res), dim=1)
+        doc_attn_res = F.relu(self.doc_emb_linear(doc_attn_res.transpose(1, 2))).squeeze()
+        que_attn_res = F.relu(self.que_emb_linear(que_attn_res.transpose(1, 2))).squeeze()
+        
+        # (batch_size, emb_size * 2)
+        dssm_out = torch.cat((doc_attn_res, que_attn_res), dim=1)
         return dssm_out
 
 

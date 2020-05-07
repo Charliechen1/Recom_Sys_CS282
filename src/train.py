@@ -135,17 +135,21 @@ for no in range(no_of_iter):
 x = list(range(len(loss_track)))
 
 plt.plot(x, loss_track)
-plt.set_title('Loss value')
 plt.savefig('training_record.jpg')
 
 # start testing
+test_size = len(r.idx_test)
+test_loss_list = []
+num = 0
 with torch.no_grad():
-    test_idx_batch = r.get_batch_bikey(test_size, src='test')
-    #text, bop, rev, target = prepare_batch_data(test_idx_batch)
-    #res = model(text, bop, rev)
-    rev, prod, target = prepare_batch_data(test_idx_batch)
-    res = model(prod, rev)
-    loss = criterion(res, target)
-    print(res)
-    print(target)
-    logger.info(f'testing loss: {loss:.4}')
+    test_idx = r.get_batch_bikey(test_size, src='test')
+    for fold_no in range(test_size // batch_size + 1):
+        test_idx_batch = test_idx[fold_no * batch_size:fold_no * batch_size + batch_size]
+        if not len(test_idx_batch):
+            continue
+        num += 1
+        rev, prod, target = prepare_batch_data(test_idx_batch)
+        res = model(prod, rev)
+        loss += criterion(res, target)
+test_loss = loss / num
+logger.info(f'testing loss: {test_loss:.4}')
