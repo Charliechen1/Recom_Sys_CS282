@@ -147,19 +147,23 @@ class ReviewGRU(nn.Module):
         super().__init__()
 
         self.embedding = embedding
-
-        if rnn_type=='GRU':
-            self.rnn = nn.GRU(embed_dim, rnn_hid_dim,
-                          num_layers=rnn_num_layers,
-                          batch_first = True, bidirectional=True)
-        else:
-            self.rnn = nn.LSTM(embed_dim, rnn_hidden_dim,
-                               num_layers=rnn_num_layers,
-                               batch_first=True, bidirectional=True)
+        self.rnn_num_layers = rnn_num_layers
+        if rnn_num_layers:
+            if rnn_type=='GRU':
+                self.rnn = nn.GRU(embed_dim, rnn_hid_dim,
+                              num_layers=rnn_num_layers,
+                              batch_first = True, bidirectional=True)
+            else:
+                self.rnn = nn.LSTM(embed_dim, rnn_hidden_dim,
+                                   num_layers=rnn_num_layers,
+                                   batch_first=True, bidirectional=True)
 
 
     def forward(self, x):
 
         x = self.embedding(x)
-        x, _ = self.rnn(x)
+        
+        if self.rnn_num_layers:
+            x, _ = self.rnn(x)
+        
         return x

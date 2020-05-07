@@ -36,19 +36,19 @@ def prepare_batch_data(idx_batch):
     rev_idx_batch = [p[0] for p in idx_batch]
     prod_idx_batch = [p[1] for p in idx_batch]
 
-    rev_batch = [r.get_reviews(rev_idx) for rev_idx in rev_idx_batch]
+    rev_batch = [r.get_reviews(rev_idx=rev_idx) for rev_idx in rev_idx_batch]
     # rev_batch = [r.get_reviews(rev_idx, prod_idx) 
     #            for rev_idx, prod_idx in zip(rev_idx_batch, prod_idx_batch)]
     # prod_batch = [p.get_product(idx, reduce=True) for idx in prod_idx_batch]
-    prod_batch = [r.get_reviews(prod_idx) for prod_idx in prod_idx_batch]
+    prod_batch = [r.get_reviews(pro_idx=prod_idx) for prod_idx in prod_idx_batch]
     score_batch = [r.get_rating(rev_idx, pro_idx, True)[0] \
                    for rev_idx, pro_idx in zip(rev_idx_batch, prod_idx_batch)]
 
     target = torch.tensor(score_batch).float()
 
     #text, bop = prepare_prod_batch(prod_batch, tokenizer, seq_len)
-    prod = prepare_rev_batch(prod_batch, tokenizer, n_reviews, seq_len)
-    rev = prepare_rev_batch(rev_batch, tokenizer, n_reviews, seq_len)
+    prod = prepare_rev_batch(prod_batch, tokenizer, pro_n_sen, seq_len)
+    rev = prepare_rev_batch(rev_batch, tokenizer, rev_n_sen, seq_len)
     
     if to_gpu:
         target = target.cuda()
@@ -77,7 +77,8 @@ logger.info("ended loading data")
 tokenizer, embedding, embed_dim = get_embed_layer(embedding_type)
 
 model = RecomModel(rnn_hidden_dim, rnn_hidden_dim,
-                   n_head, seq_len, n_reviews,
+                   n_head, seq_len, 
+                   pro_n_sen, rev_n_sen,
                    d_k, d_v,
                    embedding,
                    embed_dim,
@@ -123,13 +124,15 @@ for no in range(no_of_iter):
     loss_track.append(loss)
     if no % 10 == 0:
         with torch.no_grad():
-            valid_idx_batch = r.get_batch_bikey(batch_size, src='valid')
-            rev, prod, target = prepare_batch_data(train_idx_batch)
+            valid_idx_batch = r.get_batch_bikey(valid_size, src='valid')
+            rev, prod, target = prepare_batch_data(valid_idx_batch)
             res = model(prod, rev)
             valid_loss = criterion(res, target)
             logger.info(
                 f'{no}/{no_of_iter} of iterations, current train loss: {loss:.4}, valid loss: {valid_loss:.4}'
             )
+            #if valid_loss < 1.3:
+            #    break
     
 
 x = list(range(len(loss_track)))
@@ -150,6 +153,11 @@ with torch.no_grad():
         num += 1
         rev, prod, target = prepare_batch_data(test_idx_batch)
         res = model(prod, rev)
-        loss += criterion(res, target)
+        fold_loss = criterion(res, target)
+        loss += fold_loss
+        if fold_no == 0:
+            print("fold_0:", res, target)
+        if fold_no % 10 == 0:
+            print(fold_loss)
 test_loss = loss / num
 logger.info(f'testing loss: {test_loss:.4}')
