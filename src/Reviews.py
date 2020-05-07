@@ -12,7 +12,8 @@ import numpy as np
 class Reviews:
     def __init__(self, domain_name):
         self.domain_name = domain_name
-        self.idx2rev = defaultdict(list)
+        self.revidx2rev = defaultdict(list)
+        self.prodidx2rev = defaultdict(list)
         self.biidx2rat = defaultdict(list)
         self.rev_idx_field = 'reviewerID'
         self.pro_idx_field = 'asin'
@@ -49,7 +50,8 @@ class Reviews:
                 self.data_storage.append(data)
 
                 # save indexing
-                self.idx2rev[rev_idx].append(num_idx)
+                self.revidx2rev[rev_idx].append(num_idx)
+                self.prodidx2rev[pro_idx].append(num_idx)
                 self.biidx2rat[f'{rev_idx}_{pro_idx}'].append(num_idx)
                 self.bikey_storage.append((rev_idx, pro_idx))
                 self.rev2pro[rev_idx].append(pro_idx)
@@ -66,9 +68,13 @@ class Reviews:
             scores = list(filter(lambda x: x >= 0, scores))
         return scores
 
-    def get_reviews(self, rev_idx, pro_idx=None):
-        if not pro_idx:
-            data_idx_list = self.idx2rev[rev_idx]
+    def get_reviews(self, rev_idx=None, pro_idx=None):
+        if not pro_idx and not rev_idx:
+            return []
+        elif not pro_idx:
+            data_idx_list = self.revidx2rev[rev_idx]
+        elif not rev_idx:
+            data_idx_list = self.prodidx2rev[rev_idx]
         else:
             data_idx_list = self.biidx2rat[f'{rev_idx}_{pro_idx}']
         reviews= [self.data_storage[idx]
@@ -78,16 +84,18 @@ class Reviews:
         return reviews
 
     def get_all_rev_idx(self):
-        return list(self.idx2rev.keys())
+        return list(self.revidx2rev.keys())
 
     def get_all_rev(self):
         return self.data_storage
 
-    def get_batch_bikey(self, batch_size, from_train=True):
-        if from_train:
+    def get_batch_bikey(self, batch_size, src="train"):
+        if src=='train':
             return sample(self.idx_train, batch_size)
-        else:
+        elif src=='test':
             return sample(self.idx_test, batch_size)
+        else:
+            return sample(self.idx_valid, batch_size)
 
     def get_all_bi_idx(self):
         return self.bikey_storage
@@ -95,12 +103,16 @@ class Reviews:
     def get_pro_by_rev(self, rev_idx):
         return self.rev2pro.get(rev_idx, [])
 
-    def train_test_split(self, test_size, random_state=42):
+    def train_test_split(self, test_size, valid_size, random_state=42):
         idx_train, idx_test = train_test_split(
             self.bikey_storage, test_size=test_size, random_state=random_state
         )
+        idx_test, idx_valid = train_test_split(
+            idx_test, test_size=valid_size/(test_size + valid_size), random_state=random_state
+        )
         self.idx_train = idx_train
         self.idx_test = idx_test
+        self.idx_valid = idx_valid
         return idx_train, idx_test
 
 
@@ -124,7 +136,6 @@ if __name__ == '__main__':
     #r = Reviews('AMAZON_FASHION')
     r = Reviews('Gift_Cards')
     rev_idx_list = r.get_all_rev_idx()
-    print(len(rev_idx_list))
     for rev_idx in rev_idx_list:
         pro_idx_list = r.get_pro_by_rev(rev_idx)
         for pro_idx in pro_idx_list:

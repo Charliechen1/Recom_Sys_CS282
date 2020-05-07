@@ -12,13 +12,17 @@ class DNNDSSM(nn.Module):
         self.dropout = dropout
         self.act = nn.ReLU()
         self.doc_sen_linear = nn.Linear(n_sen, 1)
+        self.que_sen_linear = nn.Linear(n_sen, 1)
         self.doclinear = nn.Linear(seq_len, 1)
         self.quelinear = nn.Linear(seq_len, 1)
         self.catlinear1 = nn.Linear(d_model * 2, d_model * 2)
         self.catlinear2 = nn.Linear(d_model * 2, d_model * 2)
         
     def forward(self, query, document):
-        query = query.squeeze().transpose(1, 2)
+        query = torch.stack(query).transpose(0, 3)
+        query = self.que_sen_linear(query).squeeze()
+        query = query.transpose(0, 1)
+        
         document = torch.stack(document).transpose(0, 3)
         document = self.doc_sen_linear(document).squeeze()
         document = document.transpose(0, 1)
@@ -88,10 +92,10 @@ class SelfAttnDSSM(nn.Module):
         return dssm_out
 
 
-class ReviewTower(nn.Module):
+class DocumentNet(nn.Module):
 
     def __init__(self, embedding, embed_dim, rnn_hid_dim, rnn_num_layers, n_reviews):
-        super(ReviewTower, self).__init__()
+        super(DocumentNet, self).__init__()
 
         self.n_reviews = n_reviews
         self.embedding = embedding
@@ -108,14 +112,14 @@ class ReviewTower(nn.Module):
         return reviews
 
 
-class ProductTower(nn.Module):
+class QueryNet(nn.Module):
     def __init__(self, embed_model, embed_dim,
                  rnn_hidden_dim, rnn_num_layers,
                  fm_field_dims,
                  fm_embed_dim,
                  rnn_type='GRU',
                  fm_type='fm'):
-        super(ProductTower, self).__init__()
+        super(QueryNet, self).__init__()
         self.embed_model = embed_model
         if rnn_type == 'GRU':
             self.rnn = nn.GRU(embed_dim, rnn_hidden_dim,
