@@ -71,10 +71,10 @@ class Reviews:
     def get_reviews(self, rev_idx=None, pro_idx=None):
         if not pro_idx and not rev_idx:
             return []
-        elif not pro_idx:
+        elif pro_idx:
+            data_idx_list = self.prodidx2rev[pro_idx]
+        elif rev_idx:
             data_idx_list = self.revidx2rev[rev_idx]
-        elif not rev_idx:
-            data_idx_list = self.prodidx2rev[rev_idx]
         else:
             data_idx_list = self.biidx2rat[f'{rev_idx}_{pro_idx}']
         reviews= [self.data_storage[idx]
