@@ -7,10 +7,11 @@ from embeddings import get_embed_layer
 import torchfm.model.fm as fm
 
 class DNNDSSM(nn.Module):
-    def __init__(self, d_model, seq_len, dropout=0.1):
+    def __init__(self, d_model, seq_len, n_sen, dropout=0.1):
         super(DNNDSSM, self).__init__()
         self.dropout = dropout
         self.act = nn.ReLU()
+        self.doc_sen_linear = nn.Linear(n_sen, 1)
         self.doclinear = nn.Linear(seq_len, 1)
         self.quelinear = nn.Linear(seq_len, 1)
         self.catlinear1 = nn.Linear(d_model * 2, d_model * 2)
@@ -18,7 +19,9 @@ class DNNDSSM(nn.Module):
         
     def forward(self, query, document):
         query = query.squeeze().transpose(1, 2)
-        document = torch.stack(document).squeeze().transpose(1, 2)
+        document = torch.stack(document).transpose(0, 3)
+        document = self.doc_sen_linear(document).squeeze()
+        document = document.transpose(0, 1)
         
         query = self.act(self.quelinear(query)).squeeze()
         document = self.act(self.doclinear(document)).squeeze()
@@ -80,7 +83,8 @@ class SelfAttnDSSM(nn.Module):
         query_self_attn_res = F.relu(self.que_linear(query_self_attn_res.transpose(1, 2))).squeeze()
 
         # element wize
-        dssm_out = doc_self_attn_res * query_self_attn_res
+        #dssm_out = doc_self_attn_res * query_self_attn_res
+        dssm_out = torch.cat((doc_self_attn_res, query_self_attn_res), dim=1)
         return dssm_out
 
 

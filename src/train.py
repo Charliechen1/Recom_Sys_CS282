@@ -36,8 +36,12 @@ def prepare_batch_data(idx_batch):
     rev_idx_batch = [p[0] for p in idx_batch]
     prod_idx_batch = [p[1] for p in idx_batch]
 
-    # rev_batch = [r.get_reviews(idx) for idx in rev_idx_batch]
-    rev_batch = [r.get_reviews(rev_idx, prod_idx) for rev_idx, prod_idx in zip(rev_idx_batch, prod_idx_batch)]
+    #corres_rev_batch = [r.get_reviews(idx) for idx in rev_idx_batch]
+    #rev_batch = [corres_rev_batch[0] + r.get_reviews(rev_idx, prod_idx) 
+    #    for rev_idx, prod_idx, corees_rev \
+    #        in zip(rev_idx_batch, prod_idx_batch, corres_rev_batch)]
+    rev_batch = [r.get_reviews(rev_idx, prod_idx) 
+                for rev_idx, prod_idx in zip(rev_idx_batch, prod_idx_batch)]
     prod_batch = [p.get_product(idx, reduce=True) for idx in prod_idx_batch]
     score_batch = [r.get_rating(rev_idx, pro_idx, True)[0] > cls_thre\
                    for rev_idx, pro_idx in zip(rev_idx_batch, prod_idx_batch)]
@@ -54,6 +58,12 @@ def prepare_batch_data(idx_batch):
         rev = [r.cuda() for r in rev]
     
     return text, bop, rev, target
+
+def triple_loss(a, p, n, margin=0.2) : 
+    d = nn.PairwiseDistance(p=2)
+    distance = d(a, p) - d(a, n) + margin 
+    loss = torch.mean(torch.max(distance, torch.zeros_like(distance))) 
+    return loss
 
 logger = parse_logger()
 logger.setLevel(logging.INFO)
@@ -138,6 +148,9 @@ loss = criterion(res, target)
 
 logger.info(f'testing loss: {loss:.4}')
 
-print(res)
-print(target)
+pred = torch.max(res, 1)[1]
+test_acc = np.sum(np.array(pred.tolist()) == np.array(target.tolist())) / test_size
+logger.info(f'train acc: {test_acc:.2%}')
+logger.info(pred)
+logger.info(target)
 
