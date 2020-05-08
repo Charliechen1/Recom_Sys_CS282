@@ -35,8 +35,8 @@ class Tokenizer:
 
 def get_embed_layer(method = 'word2vec'):
     if method == 'glove':
-        glove_input_file = 'data/glove_6B/glove.6B.100d.txt'
-        word2vec_output_file = 'data/glove_6B/glove.6B.100d.txt.word2vec'
+        glove_input_file = '../data/glove_6B/glove.6B.100d.txt'
+        word2vec_output_file = '../data/glove_6B/glove.6B.100d.txt.word2vec'
         glove2word2vec(glove_input_file, word2vec_output_file)
         glove_model = gensim.models.KeyedVectors.load_word2vec_format(word2vec_output_file, binary=False)
         embed_dim = 100
@@ -49,7 +49,7 @@ def get_embed_layer(method = 'word2vec'):
 
     elif method == 'word2vec':
         word2vec_model = gensim.models.KeyedVectors.load_word2vec_format(
-            'data/GoogleNews-vectors-negative300.bin',
+            '../data/GoogleNews-vectors-negative300.bin',
             binary=True
         )
         embed_dim = 300

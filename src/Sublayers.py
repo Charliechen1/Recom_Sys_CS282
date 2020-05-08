@@ -147,19 +147,41 @@ class ReviewGRU(nn.Module):
         super().__init__()
 
         self.embedding = embedding
-
-        if rnn_type=='GRU':
-            self.rnn = nn.GRU(embed_dim, rnn_hid_dim,
-                          num_layers=rnn_num_layers,
-                          batch_first = True, bidirectional=True)
-        else:
-            self.rnn = nn.LSTM(embed_dim, rnn_hidden_dim,
-                               num_layers=rnn_num_layers,
-                               batch_first=True, bidirectional=True)
+        self.rnn_num_layers = rnn_num_layers
+        if rnn_num_layers:
+            if rnn_type=='GRU':
+                self.rnn = nn.GRU(embed_dim, rnn_hid_dim,
+                              num_layers=rnn_num_layers,
+                              batch_first = True, bidirectional=True)
+            else:
+                self.rnn = nn.LSTM(embed_dim, rnn_hidden_dim,
+                                   num_layers=rnn_num_layers,
+                                   batch_first=True, bidirectional=True)
 
 
     def forward(self, x):
 
         x = self.embedding(x)
-        x, _ = self.rnn(x)
+        
+        if self.rnn_num_layers:
+            x, _ = self.rnn(x)
+        
         return x
+
+class TorchFM(nn.Module):
+    def __init__(self, n=None, k=None):
+        super().__init__()
+        # Initially we fill V with random values sampled from Gaussian distribution
+        # NB: use nn.Parameter to compute gradients
+        self.V = nn.Parameter(torch.randn(n, k),requires_grad=True)
+        self.lin = nn.Linear(n, 1)
+        
+    def forward(self, x):
+        out_1 = torch.matmul(x, self.V).pow(2).sum(1, keepdim=True) #S_1^2
+        out_2 = torch.matmul(x.pow(2), self.V.pow(2)).sum(1, keepdim=True) # S_2
+        
+        out_inter = 0.5 * (out_1 - out_2)
+        out_lin = self.lin(x)
+        out = out_inter + out_lin
+        
+        return out

@@ -1,49 +1,64 @@
 import torch
 import torch.nn as nn
-from Layers import SelfAttnDSSM, ProductTower, ReviewTower
+import torch.nn.functional as F
+from Layers import SelfAttnDSSM, DNNDSSM, DocumentNet, QueryNet, ConcatFF, ConcatFM, SimpleFC
 from conf import *
 
 class RecomModel(nn.Module):
     def __init__(self, rnn_hid_dim, d_inner,
-                 n_head, seq_len, n_sen,
+                 n_head, seq_len, 
+                 doc_n_sen, que_n_sen,
                  d_k, d_v,
                  embed_model,
                  lm_embed_dim,
                  n_rnn,
-                 fm_field_dims,
                  fm_embed_dim,
                  rnn_type='GRU',
-                 fm_type='fm',
+                 ds_type='cff',
                  dropout=0.1):
 
         super(RecomModel, self).__init__()
 
         self.seq_len = seq_len
-        self.n_sen = n_sen
+        self.n_rnn = n_rnn
         self.rnn_hid_dim = rnn_hid_dim
-
-        self.product_tower = ProductTower(embed_model, lm_embed_dim,
-                                          rnn_hid_dim, n_rnn,
-                                          fm_field_dims,
-                                          fm_embed_dim,
-                                          )
-        self.review_tower = ReviewTower(embed_model, lm_embed_dim,
-                                        rnn_hid_dim, n_rnn, n_sen)
-
-        self.dssm = SelfAttnDSSM(rnn_hid_dim * 2, rnn_hid_dim,
-                                 n_head, n_sen, seq_len,
-                                 d_k, d_v,
-                                 dropout)
-        self.linear = nn.Linear(1 + rnn_hid_dim * 2, 1)
-
-    def forward(self, product, prod_bop, reviews):
-        bc_size = product.shape[0]
-        query, fm_out = self.product_tower(product, prod_bop)
+        self.act = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
         
-        document = self.review_tower(reviews)
-        dssm_out = self.dssm(query, document)
+        self.doc_net = DocumentNet(embed_model, lm_embed_dim,
+                                        rnn_hid_dim, n_rnn, doc_n_sen)
+        
+        self.que_net = DocumentNet(embed_model, lm_embed_dim,
+                                        rnn_hid_dim, n_rnn, que_n_sen)
+        
+        if self.n_rnn:
+            d_model = rnn_hid_dim * 2
+        else:
+            d_model = lm_embed_dim
+            
+        if dssm_type == 'self_attn_dssm':
+            self.dssm = SelfAttnDSSM(d_model, rnn_hid_dim,
+                                     n_head, 
+                                     doc_n_sen, que_n_sen, 
+                                     seq_len,
+                                     d_k, d_v,
+                                     dropout)
+        elif dssm_type == 'dnn_dssm':
+            self.dssm = DNNDSSM(d_model, seq_len, doc_n_sen, que_n_sen, dropout)
+        elif dssm_type == 'simple_fc':
+            self.dssm = SimpleFC(d_model, seq_len, doc_n_sen, que_n_sen, dropout)
+        
+        if ds_type == 'cff':
+            self.downstream = ConcatFF(d_model, dropout)
+        elif ds_type == 'fm':
+            self.downstream = ConcatFM(d_model, fm_embed_dim, dropout)
+        
 
-        cat_tensor = torch.cat((dssm_out, fm_out.unsqueeze(1)), dim=1)
-        res = self.linear(cat_tensor)
+    def forward(self, doc, que):
+        doc = self.doc_net(doc)
+        que = self.que_net(que)
+        
+        doc_emb, que_emb = self.dssm(doc, que)
+        res = self.downstream(doc_emb, que_emb)
         return res
 

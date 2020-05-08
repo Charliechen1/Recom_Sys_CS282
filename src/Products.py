@@ -18,9 +18,9 @@ class Products:
         self.idx2ftr = defaultdict(int)
         self.index_field = 'asin'
         self.data_storage = []
-        self._load_meta(f'data/meta_{domain_name}.json.gz')
-        self._load_attr('freq_also_view', 'dict/high_freq_1000_also_view.txt')
-        self._load_attr('freq_also_buy', 'dict/high_freq_1000_also_buy.txt')
+        self._load_meta(f'../data/meta_{domain_name}.json.gz')
+        self._load_attr('freq_also_view', '../dict/high_freq_1000_also_view.txt')
+        self._load_attr('freq_also_buy', '../dict/high_freq_1000_also_buy.txt')
 
     def _load_meta(self, meta_file_name):
         """
