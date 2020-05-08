@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from Sublayers import EncoderLayer, DecoderLayer, ReviewGRU
+from Sublayers import EncoderLayer, DecoderLayer, ReviewGRU, TorchFM
 from embeddings import get_embed_layer
 import torchfm.model.fm as fm
     
@@ -254,14 +254,13 @@ class ConcatFM(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.act = nn.ReLU()
         
-        self.fm = fm.FactorizationMachineModel([1] * (d_model * 2), fm_embed_dim)
+        self.fm = TorchFM(d_model * 2, fm_embed_dim)
         
     def forward(self, doc_emb, que_emb):
         
         concat = torch.cat((doc_emb, que_emb), dim=1)
         # fm part
         res = self.fm(concat)
-        
         return res
     
 class DotProd(nn.Module):
