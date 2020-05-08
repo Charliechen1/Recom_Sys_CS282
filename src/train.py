@@ -124,14 +124,17 @@ for no in range(no_of_iter):
             logger.info(
                 f'{no}/{no_of_iter} of iterations, current train loss: {loss:.4}, valid loss: {valid_loss:.4}'
             )
-            #if valid_loss < 1.3:
-            #    break
-    
 
 x = list(range(len(loss_track)))
 
 plt.plot(x, loss_track)
 plt.savefig('training_record.jpg')
+
+torch.save({
+    'model_state_dict': model.state_dict(),
+    'optimizer_state_dict': optimizer.state_dict(),
+    'loss': loss,
+}, f"benchmark.model")
 
 # start testing
 test_size = len(r.idx_test)
@@ -147,10 +150,7 @@ with torch.no_grad():
         rev, prod, target = prepare_batch_data(test_idx_batch)
         res = model(prod, rev)
         fold_loss = criterion(res, target)
-        loss += fold_loss
-        if fold_no == 0:
-            print("fold_0:", res, target)
-        if fold_no % 10 == 0:
-            print(fold_loss)
+        if fold_no % 100 == 0:
+            logger.info(f'testing progress: {fold_no}/{test_size // batch_size + 1}')
 test_loss = loss / num
 logger.info(f'testing loss: {test_loss:.4}')
