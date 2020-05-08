@@ -225,8 +225,6 @@ class GAttn(nn.Module):
 
     def forward(self, x):
         scores = self.attention(torch.unsqueeze(x, dim=1))
-        print(x.shape)
-        print(scores.shape)
         out = torch.mul(x, torch.squeeze(scores, dim=1))
         outs = [torch.squeeze(conv(torch.unsqueeze(out, 1))) for conv in self.convs]
         return outs

@@ -11,11 +11,13 @@ rnn_type = 'GRU'
 dssm_type = 'simple_fc'
 ds_type = 'cff'
 batch_size = 32
+accumulation_steps = 1
 pro_n_sen = 50
 rev_n_sen = 20
 seq_len = 150
 fm_embed_dim = 100
 n_head = 12
+n_attn = 1
 d_k = d_v = 64
 n_rnn = 1
 rnn_hidden_dim = 50

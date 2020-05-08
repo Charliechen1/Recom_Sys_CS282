@@ -125,6 +125,13 @@ for no in range(start_iter, no_of_iter):
     optimizer.zero_grad()
     loss_track.append(accum_loss)
     
+    # early ending
+    if len(loss_track) > 2 * early_stop_steps:
+        fst = torch.mean(torch.stack(loss_track[-2 * early_stop_steps:-early_stop_steps]))
+        scd = torch.mean(torch.stack(loss_track[-early_stop_steps:]))
+        if scd > fst:
+            break
+    
     if no % 10 == 0:
         with torch.no_grad():
             valid_idx_batch = r.get_batch_bikey(valid_size, src='valid')

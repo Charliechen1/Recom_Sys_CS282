@@ -33,6 +33,7 @@ cuda_index = 0
 pretrain_freeze = True
 dropout = 0.5
 start_from = None
+early_stop_steps = 5
 
 # test setting
 valid_size = 32
