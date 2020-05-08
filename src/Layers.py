@@ -68,7 +68,7 @@ class SelfAttnDSSM(nn.Module):
         # sen_no * (batch_size, seq_len, emb_size)
         
         # Just for cross attention:
-        # query: sen_no * (batch_size, seq_len, emb_size) -> (batch_size, seq_len, emb_size)
+        # query: sen_no * (batch_size,@ seq_len, emb_size) -> (batch_size, seq_len, emb_size)
         self.que_sen_linear = nn.Linear(que_n_sen, 1)
         
         # apply cross attention of query to document
