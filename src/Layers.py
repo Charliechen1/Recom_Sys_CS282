@@ -6,6 +6,9 @@ from Sublayers import EncoderLayer, DecoderLayer, ReviewGRU, TorchFM, LAttn, GAt
 #from embeddings import get_embed_layer
 import torchfm.model.fm as fm
 
+# Based on the model proposed in "Interpretable Convolutional Neural Networks with Dual Local
+# and Global Aention for Review Rating Prediction"
+
 
 class CNNDSSM(nn.Module):
     def __init__(self, emb_size, seq_len, doc_n_sen, que_n_sen,
@@ -22,21 +25,21 @@ class CNNDSSM(nn.Module):
         self.fc_item = FCLayer(n_channels + np.sum(n_channels_list), hidden_dim, out_dim, dropout)
 
     def forward(self, document, query):
-        #user side
+        #user side (query)
         x_u = torch.cat(query, dim=1)
         l_out_u = self.local_attention_user(x_u)
         g_out_u = self.global_attention_user(x_u)
         out_u = torch.cat([l_out_u] + g_out_u, dim=1)
         out_u = self.fc_user(out_u)
 
-        #item side
+        #item side (document)
         x_i = torch.cat(document, dim=1)
         l_out_i = self.local_attention_item(x_i)
         g_out_i = self.global_attention_item(x_i)
         out_i = torch.cat([l_out_i] + g_out_i, dim=1)
         out_i = self.fc_item(out_i)
 
-        return out_u, out_i
+        return out_i, out_u
 
 
     
