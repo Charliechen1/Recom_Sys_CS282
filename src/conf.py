@@ -10,9 +10,9 @@ embedding_type = 'bert'
 rnn_type = 'GRU'
 dssm_type = 'cnn_dssm'
 ds_type = 'cff'
-batch_size = 4
-accumulation_steps = 16
-pro_n_sen = 50
+batch_size = 64
+accumulation_steps = 1
+pro_n_sen = 40
 rev_n_sen = 20
 seq_len = 150
 fm_embed_dim = 100
@@ -26,7 +26,7 @@ rnn_hidden_dim = 50
 to_gpu = True
 test_ratio = 0.1
 valid_ratio = 0.1
-no_of_iter = 400
+no_of_iter = 500
 lr = 1e-4
 weight_decay = 1e-6
 cuda_index = 0
@@ -35,4 +35,4 @@ dropout = 0.5
 start_from = None
 
 # test setting
-valid_size = 4
+valid_size = 32
