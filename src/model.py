@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from Layers import DotProdAttnDSSM, DocumentNet, QueryNet, ConcatFF, ConcatFM, SimpleFC
+from Layers import DotProdAttnDSSM, SimpleFC, CNNDSSM, DocumentNet, QueryNet, ConcatFF, ConcatFM
 from conf import *
 
 class RecomModel(nn.Module):
@@ -44,6 +44,8 @@ class RecomModel(nn.Module):
                                      dropout)
         elif dssm_type == 'simple_fc':
             self.dssm = SimpleFC(d_model, seq_len, doc_n_sen, que_n_sen, dropout)
+        elif dssm_type == 'cnn_dssm':
+            self.dssm = CNNDSSM(d_model, seq_len, doc_n_sen, que_n_sen, dropout=dropout)
         
         if ds_type == 'cff':
             self.downstream = ConcatFF(d_model, dropout)

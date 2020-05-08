@@ -8,11 +8,11 @@ domain = 'All_Beauty'
 # model setting
 embedding_type = 'bert'
 rnn_type = 'GRU'
-dssm_type = 'dot_prod_attn_dssm'
+dssm_type = 'cnn_dssm'
 ds_type = 'cff'
-batch_size = 1
-accumulation_steps = 64
-pro_n_sen = 40
+batch_size = 4
+accumulation_steps = 16
+pro_n_sen = 50
 rev_n_sen = 20
 seq_len = 150
 fm_embed_dim = 100
@@ -35,4 +35,4 @@ dropout = 0.5
 start_from = None
 
 # test setting
-valid_size = 1
+valid_size = 4
