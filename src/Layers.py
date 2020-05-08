@@ -2,9 +2,46 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from Sublayers import EncoderLayer, DecoderLayer, ReviewGRU, TorchFM
-from embeddings import get_embed_layer
+from Sublayers import EncoderLayer, DecoderLayer, ReviewGRU, TorchFM, LAttn, GAttn, FCLayer
+#from embeddings import get_embed_layer
 import torchfm.model.fm as fm
+
+# Based on the model proposed in "Interpretable Convolutional Neural Networks with Dual Local
+# and Global Aention for Review Rating Prediction"
+
+
+class CNNDSSM(nn.Module):
+    def __init__(self, emb_size, seq_len, doc_n_sen, que_n_sen,
+                 win_size=5, n_channels=200, filter_lengths=[2, 3, 4], n_channels_list=[100, 100, 100],
+                 hidden_dim=500, out_dim=50, dropout=0.5):
+        super().__init__()
+        T_user = seq_len * que_n_sen
+        T_item = seq_len * doc_n_sen
+        self.local_attention_user = LAttn(T_user, emb_size, win_size, n_channels)
+        self.global_attention_user = GAttn(T_user, emb_size, filter_lengths, n_channels_list)
+        self.local_attention_item = LAttn(T_item, emb_size, win_size, n_channels)
+        self.global_attention_item = GAttn(T_item, emb_size, filter_lengths, n_channels_list)
+        self.fc_user = FCLayer(n_channels + np.sum(n_channels_list), hidden_dim, out_dim, dropout)
+        self.fc_item = FCLayer(n_channels + np.sum(n_channels_list), hidden_dim, out_dim, dropout)
+
+    def forward(self, document, query):
+        #user side (query)
+        x_u = torch.cat(query, dim=1)
+        l_out_u = self.local_attention_user(x_u)
+        g_out_u = self.global_attention_user(x_u)
+        out_u = torch.cat([l_out_u] + g_out_u, dim=1)
+        out_u = self.fc_user(out_u)
+
+        #item side (document)
+        x_i = torch.cat(document, dim=1)
+        l_out_i = self.local_attention_item(x_i)
+        g_out_i = self.global_attention_item(x_i)
+        out_i = torch.cat([l_out_i] + g_out_i, dim=1)
+        out_i = self.fc_item(out_i)
+
+        return out_i, out_u
+
+
     
 class SimpleFC(nn.Module):
     def __init__(self, d_model, seq_len, doc_n_sen, que_n_sen, dropout=0.1):
