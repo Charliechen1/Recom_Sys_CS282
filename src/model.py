@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from Layers import SelfAttnDSSM, DNNDSSM, DocumentNet, QueryNet
+from Layers import SelfAttnDSSM, DNNDSSM, DocumentNet, QueryNet, ConcatFF, ConcatFM, SimpleFC
 from conf import *
 
 class RecomModel(nn.Module):
@@ -12,10 +12,9 @@ class RecomModel(nn.Module):
                  embed_model,
                  lm_embed_dim,
                  n_rnn,
-                 fm_field_dims,
                  fm_embed_dim,
                  rnn_type='GRU',
-                 fm_type='fm',
+                 ds_type='cff',
                  dropout=0.1):
 
         super(RecomModel, self).__init__()
@@ -24,6 +23,7 @@ class RecomModel(nn.Module):
         self.n_rnn = n_rnn
         self.rnn_hid_dim = rnn_hid_dim
         self.act = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
         
         self.doc_net = DocumentNet(embed_model, lm_embed_dim,
                                         rnn_hid_dim, n_rnn, doc_n_sen)
@@ -45,20 +45,20 @@ class RecomModel(nn.Module):
                                      dropout)
         elif dssm_type == 'dnn_dssm':
             self.dssm = DNNDSSM(d_model, seq_len, doc_n_sen, que_n_sen, dropout)
-        self.cls_linear1 = nn.Linear(d_model, d_model)
-        self.cls_linear2 = nn.Linear(d_model, d_model)
-        self.cls_linear3 = nn.Linear(d_model, 1)
+        elif dssm_type == 'simple_fc':
+            self.dssm = SimpleFC(d_model, seq_len, doc_n_sen, que_n_sen, dropout)
+        
+        if ds_type == 'cff':
+            self.downstream = ConcatFF(d_model, dropout)
+        elif ds_type == 'fm':
+            self.downstream = ConcatFM(d_model, fm_embed_dim, dropout)
         
 
     def forward(self, doc, que):
         doc = self.doc_net(doc)
         que = self.que_net(que)
         
-        dssm_out = self.dssm(doc, que)
-        
-        # feedforward part
-        res = dssm_out + self.act(self.cls_linear1(dssm_out))
-        res = res + self.act(self.cls_linear2(res))
-        res = self.cls_linear3(res).squeeze()
+        doc_emb, que_emb = self.dssm(doc, que)
+        res = self.downstream(doc_emb, que_emb)
         return res
 

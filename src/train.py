@@ -37,23 +37,17 @@ def prepare_batch_data(idx_batch):
     prod_idx_batch = [p[1] for p in idx_batch]
 
     rev_batch = [r.get_reviews(rev_idx=rev_idx) for rev_idx in rev_idx_batch]
-    # rev_batch = [r.get_reviews(rev_idx, prod_idx) 
-    #            for rev_idx, prod_idx in zip(rev_idx_batch, prod_idx_batch)]
-    # prod_batch = [p.get_product(idx, reduce=True) for idx in prod_idx_batch]
     prod_batch = [r.get_reviews(pro_idx=prod_idx) for prod_idx in prod_idx_batch]
     score_batch = [r.get_rating(rev_idx, pro_idx, True)[0] \
                    for rev_idx, pro_idx in zip(rev_idx_batch, prod_idx_batch)]
 
     target = torch.tensor(score_batch).float()
 
-    #text, bop = prepare_prod_batch(prod_batch, tokenizer, seq_len)
     prod = prepare_rev_batch(prod_batch, tokenizer, pro_n_sen, seq_len)
     rev = prepare_rev_batch(rev_batch, tokenizer, rev_n_sen, seq_len)
     
     if to_gpu:
         target = target.cuda()
-        #text = text.cuda()
-        #bop = bop.cuda()
         rev = [r.cuda() for r in rev]
         prod = [r.cuda() for r in prod]
     
@@ -83,11 +77,10 @@ model = RecomModel(rnn_hidden_dim, rnn_hidden_dim,
                    embedding,
                    embed_dim,
                    n_rnn,
-                   fm_field_dims=[2] * fm_n,
                    fm_embed_dim=fm_embed_dim,
+                   ds_type=ds_type,
                    rnn_type=rnn_type,
-                   fm_type=fm_type,
-                   dropout=0.1,)
+                   dropout=dropout,)
                    
 model.apply(init_weights)
 

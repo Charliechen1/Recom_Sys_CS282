@@ -92,10 +92,13 @@ class Reviews:
     def get_batch_bikey(self, batch_size, src="train"):
         if src=='train':
             return choices(population=self.idx_train, weights=self.weights_train, k=batch_size)
+            #return choices(population=self.idx_train, k=batch_size)
         elif src=='test':
             return choices(population=self.idx_test, weights=self.weights_test, k=batch_size)
+            #return choices(population=self.idx_test, k=batch_size)
         else:
             return choices(population=self.idx_valid, weights=self.weights_valid, k=batch_size)
+            #return choices(population=self.idx_valid, k=batch_size)
 
     def get_all_bi_idx(self):
         return self.bikey_storage

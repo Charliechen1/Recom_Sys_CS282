@@ -5,11 +5,35 @@ import torch.nn.functional as F
 from Sublayers import EncoderLayer, DecoderLayer, ReviewGRU
 from embeddings import get_embed_layer
 import torchfm.model.fm as fm
-
+    
+class SimpleFC(nn.Module):
+    def __init__(self, d_model, seq_len, doc_n_sen, que_n_sen, dropout=0.1):
+        super(SimpleFC, self).__init__()
+        self.dropout = nn.Dropout(dropout)
+        self.act = nn.ReLU()
+        self.doc_linear1 = nn.Linear(seq_len * doc_n_sen, seq_len * doc_n_sen)
+        self.que_linear1 = nn.Linear(seq_len * que_n_sen, seq_len * que_n_sen)
+        self.doc_linear2 = nn.Linear(seq_len * doc_n_sen, 1)
+        self.que_linear2 = nn.Linear(seq_len * que_n_sen, 1)
+    
+    def forward(self, document, query):
+        # sen_no * (batch_size, seq_len, emb_size) -> (batch_size, seq_len * sen_no, emb_size)
+        document = torch.cat(document, dim=1).transpose(1, 2)
+        query = torch.cat(query, dim=1).transpose(1, 2)
+        
+        # (batch_size, seq_len * sen_no, emb_size) -> (batch_size, emb_size)
+        document = self.act(self.doc_linear1(document))
+        query = self.act(self.que_linear1(query))
+        document = self.act(self.doc_linear2(document).squeeze())
+        query = self.act(self.que_linear2(query).squeeze())
+        
+        return document, query
+        
+    
 class DNNDSSM(nn.Module):
     def __init__(self, d_model, seq_len, doc_n_sen, que_n_sen, dropout=0.1):
         super(DNNDSSM, self).__init__()
-        self.dropout = dropout
+        self.dropout = nn.Dropout(dropout)
         self.act = nn.ReLU()
         self.doc_sen_linear = nn.Linear(doc_n_sen, 1)
         self.que_sen_linear = nn.Linear(que_n_sen, 1)
@@ -30,9 +54,7 @@ class DNNDSSM(nn.Module):
         query = self.act(self.quelinear(query)).squeeze()
         document = self.act(self.doclinear(document)).squeeze()
         
-        #res = torch.cat((query, document), dim=1)
-        res = query * document
-        return res
+        return document, query
     
 class SelfAttnDSSM(nn.Module):
     """
@@ -81,8 +103,7 @@ class SelfAttnDSSM(nn.Module):
         
         # document: (batch_size, sen_no, emb_size) unchanged
         self.doc_high_self_attn = EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout)
-        
-        # notice there is no que high self attn
+        self.que_high_self_attn = EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout)
         
         # document: (batch_size, sen_no, emb_size) -> (batch_size, emb_size)
         self.doc_emb_linear = nn.Linear(doc_n_sen, 1)
@@ -100,19 +121,21 @@ class SelfAttnDSSM(nn.Module):
         # from sen_no * (batch_size, seq_len, emb_size)
         # to (sen_no, batch_size, seq_len, emb_size)
         # to (emb_size, batch_size, seq_len, sen_no)
-        query_enc = torch.stack(query).transpose(0, 3)
+        # query_enc = torch.stack(query).transpose(0, 3)
         
         # (emb_size, batch_size, seq_len, sen_no) -> (emb_size, batch_size, seq_len)
         # (emb_size, batch_size, seq_len) -> (batch_size, emb_size, seq_len)
         # (batch_size, emb_size, seq_len) -> (batch_size, seq_len, emb_size)
-        query_enc = self.que_sen_linear(query_enc).squeeze().transpose(0, 1).transpose(1, 2)
+        # query_enc = self.que_sen_linear(query_enc).squeeze().transpose(0, 1).transpose(1, 2)
         
         # sen_no * (batch_size, seq_len, emb_size)
-        doc_cros_attn_res = [cros_attn_layer(query_enc, document[idx])[0] \
-                             for idx, cros_attn_layer in enumerate(self.cros_attn_blocks)]
+        # doc_cros_attn_res = [cros_attn_layer(query_enc, document[idx])[0] \
+        #                     for idx, cros_attn_layer in enumerate(self.cros_attn_blocks)]
         
         # sen_no * (batch_size, seq_len, emb_size) unchanged
-        doc_attn_res = [self_attn_layer(doc_cros_attn_res[idx])[0] \
+        # doc_attn_res = [self_attn_layer(doc_cros_attn_res[idx])[0] \
+        #                     for idx, self_attn_layer in enumerate(self.doc_self_attn_blocks)]
+        doc_attn_res = [self_attn_layer(document[idx])[0] \
                              for idx, self_attn_layer in enumerate(self.doc_self_attn_blocks)]
         
         # sen_no * (batch_size, seq_len, emb_size) unchanged
@@ -134,10 +157,12 @@ class SelfAttnDSSM(nn.Module):
         doc_attn_res = doc_attn_res.transpose(0, 1)
         doc_attn_res, _ = self.doc_high_self_attn(doc_attn_res)
         
+        
         # sen_no * (batch_size, emb_size) -> (sen_no, batch_size, emb_size)
         que_attn_res = torch.stack(que_attn_res)
         # (sen_no, batch_size, emb_size) -> (batch_size, sen_no, emb_size)
         que_attn_res = que_attn_res.transpose(0, 1)
+        que_attn_res, _ = self.que_high_self_attn(que_attn_res)
         
         
         # (batch_size, sen_no, emb_size) -> (batch_size, emb_size)
@@ -148,12 +173,8 @@ class SelfAttnDSSM(nn.Module):
         doc_attn_res = self.dropout(F.relu(self.doc_fc_linear(doc_attn_res)))
         que_attn_res = self.dropout(F.relu(self.que_fc_linear(que_attn_res)))
         
-        # (batch_size, emb_size * 2)
-        # dssm_out = torch.cat((doc_attn_res, que_attn_res), dim=1)
-        
         # (batch_size, emb_size)
-        dssm_out = doc_attn_res * que_attn_res
-        return dssm_out
+        return doc_attn_res, que_attn_res
 
 
 class DocumentNet(nn.Module):
@@ -206,3 +227,54 @@ class QueryNet(nn.Module):
         fm_out = self.fm(bop)
 
         return rnn_out, fm_out
+
+    
+class ConcatFF(nn.Module):
+    def __init__(self, d_model, dropout):
+        super(ConcatFF, self).__init__()
+        self.dropout = nn.Dropout(dropout)
+        self.act = nn.ReLU()
+        self.linear1 = nn.Linear(d_model * 2, d_model * 2)
+        self.linear2 = nn.Linear(d_model * 2, d_model * 2)
+        self.linear3 = nn.Linear(d_model * 2, 1)
+        
+    def forward(self, doc_emb, que_emb):
+        concat = torch.cat((doc_emb, que_emb), dim=1)
+        # feedforward part
+        concat = concat + self.dropout(self.act(self.linear1(concat)))
+        concat = concat + self.dropout(self.act(self.linear2(concat)))
+        concat = self.linear3(concat).squeeze()
+        
+        return concat
+    
+    
+class ConcatFM(nn.Module):
+    def __init__(self, d_model, fm_embed_dim, dropout):
+        super(ConcatFM, self).__init__()
+        self.dropout = nn.Dropout(dropout)
+        self.act = nn.ReLU()
+        
+        self.fm = fm.FactorizationMachineModel([1] * (d_model * 2), fm_embed_dim)
+        
+    def forward(self, doc_emb, que_emb):
+        
+        concat = torch.cat((doc_emb, que_emb), dim=1)
+        # fm part
+        res = self.fm(concat)
+        
+        return res
+    
+class DotProd(nn.Module):
+    def __init__(self, d_model, dropout):
+        super(DotProd, self).__init__()
+        self.dropout = nn.Dropout(dropout)
+        self.act = nn.ReLU()
+        self.linear = nn.Linear(d_model * 2, 1)
+        
+    def forward(self, doc_emb, que_emb):
+        
+        mul = doc_emv * que_emb
+        res = self.linear(mul)
+        
+        return res
+    
