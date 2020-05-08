@@ -26,12 +26,13 @@ rnn_hidden_dim = 50
 to_gpu = True
 test_ratio = 0.1
 valid_ratio = 0.1
-no_of_iter = 500
+no_of_iter = 400
 lr = 1e-4
 weight_decay = 1e-6
 cuda_index = 0
 pretrain_freeze = True
 dropout = 0.5
+start_from = None
 
 # test setting
-valid_size = 2
+valid_size = 1

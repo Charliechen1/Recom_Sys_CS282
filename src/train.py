@@ -96,11 +96,18 @@ logger.info(f"Model is on gpu: {next(model.parameters()).is_cuda}")
 criterion = nn.MSELoss()
 #criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+start_iter = 0
+if start_from:
+    model_data = torch.load(start_from)
+    start_iter = model_data['no_of_iter']
+    model.load_state_dict(model_data['model_state_dict'])
+    optimizer.load_state_dict(model_data['optimizer_state_dict'])
+    model.train()
 
 loss_track, acc_track = [], []
 
 logger.info('start training')
-for no in range(no_of_iter):
+for no in range(start_iter, no_of_iter):
     # accumulation training
     accum_loss = 0
     for step in range(accumulation_steps):
@@ -134,6 +141,7 @@ plt.plot(x, loss_track)
 plt.savefig('../record/training_record.jpg')
 
 torch.save({
+    'no_of_iter': no_of_iter,
     'model_state_dict': model.state_dict(),
     'optimizer_state_dict': optimizer.state_dict(),
     'loss': loss,
