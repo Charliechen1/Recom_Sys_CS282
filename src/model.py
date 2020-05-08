@@ -45,7 +45,7 @@ class RecomModel(nn.Module):
         elif dssm_type == 'simple_fc':
             self.dssm = SimpleFC(d_model, seq_len, doc_n_sen, que_n_sen, dropout)
         elif dssm_type == 'cnn_dssm':
-            self.dssm = CNNDSSM(d_model, seq_len, doc_n_sen, que_n_sen, dropout=dropout)
+            self.dssm = CNNDSSM(d_model, seq_len, doc_n_sen, que_n_sen, out_dim = d_model, dropout=dropout)
         
         if ds_type == 'cff':
             self.downstream = ConcatFF(d_model, dropout)

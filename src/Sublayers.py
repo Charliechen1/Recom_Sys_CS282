@@ -215,13 +215,13 @@ class GAttn(nn.Module):
             nn.Conv2d(1, 1, (T*2 + 1, emb_size), padding=(T, 0)),
             nn.Sigmoid()
         )
-        self.convs = [
+        self.convs = nn.ModuleList([
             nn.Sequential(
                 nn.Conv2d(1, n_channels, (filter_length, emb_size)),
                 nn.Tanh(),
                 nn.MaxPool2d((T - filter_length + 1, 1))
             ) for filter_length, n_channels in zip(filter_lengths, n_channels_list)
-        ]
+        ])
 
     def forward(self, x):
         scores = self.attention(torch.unsqueeze(x, dim=1))
