@@ -249,12 +249,14 @@ class DotProd(nn.Module):
         super(DotProd, self).__init__()
         self.dropout = nn.Dropout(dropout)
         self.act = nn.ReLU()
-        self.linear = nn.Linear(d_model * 2, 1)
+        self.linear1 = nn.Linear(d_model, d_model)
+        self.linear2 = nn.Linear(d_model, 1)
         
     def forward(self, doc_emb, que_emb):
         
         mul = doc_emv * que_emb
-        res = self.linear(mul)
+        res = self.dropout(self.act(self.linear(mul)))
+        res = self.linear2(res).squeeze()
         
         return res
     

@@ -12,7 +12,7 @@ dssm_type = 'cnn_dssm'
 ds_type = 'cff'
 batch_size = 64
 accumulation_steps = 1
-pro_n_sen = 40
+pro_n_sen = 50
 rev_n_sen = 20
 seq_len = 150
 fm_embed_dim = 100
@@ -26,14 +26,14 @@ rnn_hidden_dim = 50
 to_gpu = True
 test_ratio = 0.1
 valid_ratio = 0.1
-no_of_iter = 500
+no_of_iter = 200
 lr = 1e-4
 weight_decay = 1e-6
 cuda_index = 0
 pretrain_freeze = True
 dropout = 0.5
 start_from = None
-early_stop_steps = 5
+early_stop_steps = 10
 
 # test setting
 valid_size = 32
