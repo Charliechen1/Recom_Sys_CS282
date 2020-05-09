@@ -54,6 +54,24 @@ def prepare_batch_data(idx_batch):
     #return text, bop, rev, target
     return rev, prod, target
 
+def save_model(no_of_iter, model, optimizer, loss, path="../model/benchmark.model"):
+    torch.save({
+        'no_of_iter': no_of_iter,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss,
+    }, path)
+    
+def load_model(start_from, model, optimizer):
+    if start_from:
+        model_data = torch.load(start_from)
+        start_iter = model_data['no_of_iter']
+        model.load_state_dict(model_data['model_state_dict'])
+        optimizer.load_state_dict(model_data['optimizer_state_dict'])
+        model.train()
+        return start_iter
+    return 0
+    
 logger = parse_logger()
 logger.setLevel(logging.INFO)
 
@@ -96,13 +114,9 @@ logger.info(f"Model is on gpu: {next(model.parameters()).is_cuda}")
 criterion = nn.MSELoss()
 #criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-start_iter = 0
-if start_from:
-    model_data = torch.load(start_from)
-    start_iter = model_data['no_of_iter']
-    model.load_state_dict(model_data['model_state_dict'])
-    optimizer.load_state_dict(model_data['optimizer_state_dict'])
-    model.train()
+
+# load from checkpoint if there is
+start_iter = load_model(start_from, model, optimizer)
 
 loss_track, acc_track = [], []
 
@@ -132,7 +146,7 @@ for no in range(start_iter, no_of_iter):
         if scd > fst:
             break
     
-    if no % 10 == 0:
+    if no % 1 == 0:
         with torch.no_grad():
             valid_idx_batch = r.get_batch_bikey(valid_size, src='valid')
             rev, prod, target = prepare_batch_data(valid_idx_batch)
@@ -141,18 +155,15 @@ for no in range(start_iter, no_of_iter):
             logger.info(
                 f'{no}/{no_of_iter} of iterations, current train loss: {accum_loss:.4}, valid loss: {valid_loss:.4}'
             )
+        save_model(no + 1, model, optimizer, loss, path="../model/checkpoint.model")
+        
 
 x = list(range(len(loss_track)))
 
 plt.plot(x, loss_track)
 plt.savefig('../record/training_record.jpg')
 
-torch.save({
-    'no_of_iter': no_of_iter,
-    'model_state_dict': model.state_dict(),
-    'optimizer_state_dict': optimizer.state_dict(),
-    'loss': loss,
-}, f"../model/benchmark.model")
+save_model(no_of_iter, model, optimizer, loss, path="../model/benchmark.model")
 
 # start testing
 test_size = len(r.idx_test)
