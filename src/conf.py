@@ -13,13 +13,13 @@ ds_type = 'cff'
 # actual batch_size is batch_size * accumulation_steps
 # that's an optimization for poor group like us QAQ
 batch_size = 1
-accumulation_steps = 32
+accumulation_steps = 128
 pro_n_sen = 40
 rev_n_sen = 15
-seq_len = 150
+seq_len = 120
 fm_embed_dim = 100
 n_head = 12
-n_attn = 1
+n_attn = 2
 d_k = d_v = 64
 n_rnn = 1
 rnn_hidden_dim = 50
@@ -34,7 +34,9 @@ weight_decay = 1e-6
 cuda_index = 0
 pretrain_freeze = True
 dropout = 0.5
-start_from = '../model/checkpoint.model'
+
+start_from = '../model/dotprod_checkpoint.model'
+#start_from = None
 early_stop_steps = 20
 
 # test setting

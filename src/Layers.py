@@ -148,13 +148,13 @@ class DotProdAttnDSSM(nn.Module):
         doc_attn_res = doc_attn_res.transpose(1, 2)
         
         # (batch_size, emb_size, seq_len * sen_no) unchanged
-        que_attn_res += self.dropout(self.act(self.que_ff_linear(que_attn_res)))
-        doc_attn_res += self.dropout(self.act(self.doc_ff_linear(doc_attn_res)))
+        que_attn_res = self.dropout(self.act(self.que_ff_linear(que_attn_res)))
+        doc_attn_res = self.dropout(self.act(self.doc_ff_linear(doc_attn_res)))
         
         # (batch_size, emb_size, seq_len * sen_no) -> (batch_size, emb_size)
         que_attn_res = self.que_emb_linear(que_attn_res).squeeze(-1)
         doc_attn_res = self.doc_emb_linear(doc_attn_res).squeeze(-1)
-
+        
         return doc_attn_res, que_attn_res
 
 
