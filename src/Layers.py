@@ -28,7 +28,30 @@ class SimpleFC(nn.Module):
         query = self.act(self.que_linear2(query).squeeze())
         
         return document, query
-        
+
+class DeepCoNN(nn.Module):
+    def __init__(self, emb_size, seq_len, doc_n_sen, que_n_sen, win_size=5):
+        super(DeepCoNN, self).__init__()
+        self.pool_dim = 2 * (emb_size - 1)//2 + 1
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, 1, (win_size, emb_size), padding=((win_size-1)//2, (emb_size - 1)//2)),
+            nn.ReLU(),
+            nn.MaxPool2d((1, self.pool_dim)))
+        self.que_fc = nn.Linear(seq_len * que_n_sen, emb_size)
+        self.doc_fc = nn.Linear(seq_len * doc_n_sen, emb_size)
+
+    def forward(self, document, query):
+        # sen_no * (batch_size, seq_len, emb_size) -> (batch_size, seq_len * sen_no, emb_size)
+        document = torch.cat(document, dim=1).transpose(1, 2)
+        query = torch.cat(query, dim=1).transpose(1, 2)
+
+        # (batch_size, seq_len * sen_no, emb_size) -> (batch_size, emb_size)
+        document = self.conv(document)
+        query = self.conv(query)
+        document = self.doc_fc(document)
+        query = self.que_fc(query)
+
+        return document, query
     
 class DNNDSSM(nn.Module):
     def __init__(self, d_model, seq_len, doc_n_sen, que_n_sen, dropout=0.1):
