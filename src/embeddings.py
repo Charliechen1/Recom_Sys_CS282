@@ -70,3 +70,14 @@ def get_embed_layer(method = 'word2vec'):
         else:
             model.train()
         return tokenizer, model.embeddings.word_embeddings, embed_dim
+
+    elif method == 'xlnet':
+        tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
+        model = XLNetModel.from_pretrained('xlnet-base-cased')
+        embed_dim = 768
+
+        if pretrain_freeze:
+            model.eval()
+        else:
+            model.train()
+        return tokenizer, model.embeddings.word_embeddings, embed_dim
