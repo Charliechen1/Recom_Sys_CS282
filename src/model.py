@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from Layers import SelfAttnDSSM, DNNDSSM, DocumentNet, QueryNet, ConcatFF, ConcatFM, SimpleFC
+from Layers import DotProdAttnDSSM, SimpleFC, CNNDSSM, DocumentNet, QueryNet, ConcatFF, ConcatFM
 from conf import *
 
 class RecomModel(nn.Module):
     def __init__(self, rnn_hid_dim, d_inner,
-                 n_head, seq_len, 
-                 doc_n_sen, que_n_sen,
+                 n_head, n_attn, 
+                 seq_len, doc_n_sen, que_n_sen,
                  d_k, d_v,
                  embed_model,
                  lm_embed_dim,
@@ -36,17 +36,16 @@ class RecomModel(nn.Module):
         else:
             d_model = lm_embed_dim
             
-        if dssm_type == 'self_attn_dssm':
-            self.dssm = SelfAttnDSSM(d_model, rnn_hid_dim,
-                                     n_head, 
-                                     doc_n_sen, que_n_sen, 
-                                     seq_len,
+        if dssm_type == 'dot_prod_attn_dssm':
+            self.dssm = DotProdAttnDSSM(d_model, rnn_hid_dim,
+                                     n_head, n_attn,
+                                     seq_len, doc_n_sen, que_n_sen, 
                                      d_k, d_v,
                                      dropout)
-        elif dssm_type == 'dnn_dssm':
-            self.dssm = DNNDSSM(d_model, seq_len, doc_n_sen, que_n_sen, dropout)
         elif dssm_type == 'simple_fc':
             self.dssm = SimpleFC(d_model, seq_len, doc_n_sen, que_n_sen, dropout)
+        elif dssm_type == 'cnn_dssm':
+            self.dssm = CNNDSSM(d_model, seq_len, doc_n_sen, que_n_sen, out_dim = d_model, dropout=dropout)
         
         if ds_type == 'cff':
             self.downstream = ConcatFF(d_model, dropout)

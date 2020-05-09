@@ -54,6 +54,24 @@ def prepare_batch_data(idx_batch):
     #return text, bop, rev, target
     return rev, prod, target
 
+def save_model(no_of_iter, model, optimizer, loss, path="../model/benchmark.model"):
+    torch.save({
+        'no_of_iter': no_of_iter,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss,
+    }, path)
+    
+def load_model(start_from, model, optimizer):
+    if start_from:
+        model_data = torch.load(start_from)
+        start_iter = model_data['no_of_iter']
+        model.load_state_dict(model_data['model_state_dict'])
+        optimizer.load_state_dict(model_data['optimizer_state_dict'])
+        model.train()
+        return start_iter
+    return 0
+    
 logger = parse_logger()
 logger.setLevel(logging.INFO)
 
@@ -71,8 +89,8 @@ logger.info("ended loading data")
 tokenizer, embedding, embed_dim = get_embed_layer(embedding_type)
 
 model = RecomModel(rnn_hidden_dim, rnn_hidden_dim,
-                   n_head, seq_len, 
-                   pro_n_sen, rev_n_sen,
+                   n_head, n_attn, 
+                   seq_len, pro_n_sen, rev_n_sen, 
                    d_k, d_v,
                    embedding,
                    embed_dim,
@@ -82,7 +100,7 @@ model = RecomModel(rnn_hidden_dim, rnn_hidden_dim,
                    rnn_type=rnn_type,
                    dropout=dropout,)
                    
-model.apply(init_weights)
+#model.apply(init_weights)
 
 if to_gpu:
     to_index = cuda_index
@@ -91,55 +109,67 @@ if to_gpu:
     logger.info(f'sending whole model data to CUDA device {str(device)}')
     model.to(device)
 
-
 logger.info(f"Model is on gpu: {next(model.parameters()).is_cuda}")
 
 criterion = nn.MSELoss()
 #criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
+# load from checkpoint if there is
+start_iter = load_model(start_from, model, optimizer)
+
 loss_track, acc_track = [], []
 
 logger.info('start training')
-for no in range(no_of_iter):
-    model.zero_grad()
-    
-    train_idx_batch = r.get_batch_bikey(batch_size, src='train')
-    rev, prod, target = prepare_batch_data(train_idx_batch)
+for no in range(start_iter, no_of_iter):
+    # accumulation training
+    accum_loss = 0
+    for step in range(accumulation_steps):
+        train_idx_batch = r.get_batch_bikey(batch_size, src='train')
+        rev, prod, target = prepare_batch_data(train_idx_batch)
 
-    #res = model(text, bop, rev)
-    res = model(prod, rev)
-    loss = criterion(res, target)
+        #res = model(text, bop, rev)
+        res = model(prod, rev)
+        loss = criterion(res, target) / accumulation_steps
+        accum_loss += loss 
+        # gradient accumulate
+        loss.backward()
+        
+    optimizer.step()   
+    optimizer.zero_grad()
+    loss_track.append(accum_loss)
     
-    loss.backward()
-    optimizer.step()
+    # early ending
+    if len(loss_track) > 2 * early_stop_steps:
+        fst = torch.min(torch.stack(loss_track[-2 * early_stop_steps:-early_stop_steps]))
+        scd = torch.min(torch.stack(loss_track[-early_stop_steps:]))
+        if scd > fst:
+            break
     
-    loss_track.append(loss)
-    if no % 10 == 0:
+    if no % 1 == 0:
         with torch.no_grad():
             valid_idx_batch = r.get_batch_bikey(valid_size, src='valid')
             rev, prod, target = prepare_batch_data(valid_idx_batch)
             res = model(prod, rev)
             valid_loss = criterion(res, target)
             logger.info(
-                f'{no}/{no_of_iter} of iterations, current train loss: {loss:.4}, valid loss: {valid_loss:.4}'
+                f'{no}/{no_of_iter} of iterations, current train loss: {accum_loss:.4}, valid loss: {valid_loss:.4}'
             )
+        save_model(no + 1, model, optimizer, loss, path="../model/checkpoint.model")
+        
 
 x = list(range(len(loss_track)))
 
 plt.plot(x, loss_track)
-plt.savefig('training_record.jpg')
+plt.savefig('../record/training_record.jpg')
 
-torch.save({
-    'model_state_dict': model.state_dict(),
-    'optimizer_state_dict': optimizer.state_dict(),
-    'loss': loss,
-}, f"benchmark.model")
+save_model(no_of_iter, model, optimizer, loss, path="../model/benchmark.model")
 
 # start testing
 test_size = len(r.idx_test)
 test_loss_list = []
 num = 0
+loss = 0
 with torch.no_grad():
     test_idx = r.get_batch_bikey(test_size, src='test')
     for fold_no in range(test_size // batch_size + 1):
@@ -150,6 +180,7 @@ with torch.no_grad():
         rev, prod, target = prepare_batch_data(test_idx_batch)
         res = model(prod, rev)
         fold_loss = criterion(res, target)
+        loss += fold_loss
         if fold_no % 100 == 0:
             logger.info(f'testing progress: {fold_no}/{test_size // batch_size + 1}')
 test_loss = loss / num

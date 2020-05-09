@@ -185,3 +185,62 @@ class TorchFM(nn.Module):
         out = out_inter + out_lin
         
         return out
+
+
+# sublayers for CNNDSSM
+class LAttn(nn.Module):
+    def __init__(self, T, emb_size, win_size, n_channels):
+        super().__init__()
+        assert win_size % 2 == 1
+        self.attention = nn.Sequential(
+            nn.Conv2d(1, 1, (win_size, emb_size), padding=((win_size-1)//2, 0)),
+            nn.Sigmoid()
+        )
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, n_channels, (1, emb_size)),
+            nn.MaxPool2d((T, 1))
+        )
+
+    def forward(self, x):
+        scores = self.attention(torch.unsqueeze(x, dim=1))
+        out = torch.mul(x, torch.squeeze(scores, dim=1))
+        out = torch.squeeze(self.conv(torch.unsqueeze(out, 1)))
+        return out
+
+
+class GAttn(nn.Module):
+    def __init__(self, T, emb_size, filter_lengths, n_channels_list):
+        super().__init__()
+        self.attention = nn.Sequential(
+            nn.Conv2d(1, 1, (T*2 - 1, emb_size), padding=(T - 1, 0)),
+            nn.Sigmoid()
+        )
+        self.convs = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv2d(1, n_channels, (filter_length, emb_size)),
+                nn.Tanh(),
+                nn.MaxPool2d((T - filter_length + 1, 1))
+            ) for filter_length, n_channels in zip(filter_lengths, n_channels_list)
+        ])
+
+    def forward(self, x):
+        scores = self.attention(torch.unsqueeze(x, dim=1))
+        out = torch.mul(x, torch.squeeze(scores, dim=1))
+        outs = [torch.squeeze(conv(torch.unsqueeze(out, 1))) for conv in self.convs]
+        return outs
+
+
+class FCLayer(nn.Module):
+    def __init__(self, input_dim, hidden_dim, out_dim, dropout):
+        super().__init__()
+        self.linear1 = nn.Linear(input_dim, hidden_dim)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(hidden_dim, out_dim)
+
+    def forward(self, x):
+        out = self.linear1(x)
+        out = F.relu(out)
+        out = self.dropout(out)
+        out = self.linear2(out)
+        out = F.relu(out)
+        return out

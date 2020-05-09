@@ -8,14 +8,12 @@ domain = 'All_Beauty'
 # model setting
 embedding_type = 'bert'
 rnn_type = 'GRU'
-dssm_type = 'dot_prod_attn_dssm'
+dssm_type = 'cnn_dssm'
 ds_type = 'cff'
-# actual batch_size is batch_size * accumulation_steps
-# that's an optimization for poor group like us QAQ
-batch_size = 1
-accumulation_steps = 32
-pro_n_sen = 40
-rev_n_sen = 15
+batch_size = 64
+accumulation_steps = 1
+pro_n_sen = 50
+rev_n_sen = 20
 seq_len = 150
 fm_embed_dim = 100
 n_head = 12
@@ -34,8 +32,8 @@ weight_decay = 1e-6
 cuda_index = 0
 pretrain_freeze = True
 dropout = 0.5
-start_from = '../model/checkpoint.model'
-early_stop_steps = 20
+start_from = None
+early_stop_steps = 10
 
 # test setting
-valid_size = 1
+valid_size = 32
