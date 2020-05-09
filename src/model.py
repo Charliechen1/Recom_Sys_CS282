@@ -46,6 +46,8 @@ class RecomModel(nn.Module):
             self.dssm = SimpleFC(d_model, seq_len, doc_n_sen, que_n_sen, dropout)
         elif dssm_type == 'cnn_dssm':
             self.dssm = CNNDSSM(d_model, seq_len, doc_n_sen, que_n_sen, out_dim = d_model, dropout=dropout)
+        elif dssm_type == 'deep_conn':
+            self.dssm = DeepCoNN(d_model, seq_len, doc_n_sen, que_n_sen)
         
         if ds_type == 'cff':
             self.downstream = ConcatFF(d_model, dropout)
