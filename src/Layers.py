@@ -69,7 +69,7 @@ class SimpleFC(nn.Module):
 class DeepCoNN(nn.Module):
     def __init__(self, emb_size, seq_len, doc_n_sen, que_n_sen, win_size=5, depth=1):
         super(DeepCoNN, self).__init__()
-        self.pool_dim = 2 * (emb_size - 1)//2 + 1
+        self.pool_dim = 2 * ((emb_size - 1)//2) + 1
         self.conv = nn.Sequential(
             nn.Conv2d(1, 1, (win_size, emb_size), padding=((win_size-1)//2, (emb_size - 1)//2)),
             nn.ReLU(),
@@ -81,13 +81,14 @@ class DeepCoNN(nn.Module):
     def forward(self, document, query):
         # sen_no * (batch_size, seq_len, emb_size) -> (batch_size, seq_len * sen_no, emb_size)
         document = torch.cat(document, dim=1)
+        print(document.shape)
         query = torch.cat(query, dim=1)
 
         # (batch_size, seq_len * sen_no, emb_size) -> (batch_size, emb_size)
-        document = self.conv(document)
-        query = self.conv(query)
-        document = self.doc_fc(document)
-        query = self.que_fc(query)
+        document = self.conv(torch.unsqueeze(document, dim=1))
+        query = self.conv(torch.unsqueeze(query, dim=1))
+        document = self.doc_fc(torch.squeeze(document))
+        query = self.que_fc(torch.squeeze(query))
 
         return document, query
 
