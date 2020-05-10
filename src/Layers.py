@@ -67,15 +67,14 @@ class SimpleFC(nn.Module):
         return document, query
 
 class DeepCoNN(nn.Module):
-    def __init__(self, emb_size, seq_len, doc_n_sen, que_n_sen, win_size=5, depth=2):
+    def __init__(self, emb_size, seq_len, doc_n_sen, que_n_sen, win_size=5, depth=1):
         super(DeepCoNN, self).__init__()
         self.pool_dim = 2 * (emb_size - 1)//2 + 1
-        self.conv = nn.ModuleList([
-            nn.Sequential(
-                nn.Conv2d(1, 1, (win_size, emb_size), padding=((win_size-1)//2, (emb_size - 1)//2)),
-                nn.ReLU(),
-                nn.MaxPool2d((1, self.pool_dim))
-            ) for _ in range(depth)])
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, 1, (win_size, emb_size), padding=((win_size-1)//2, (emb_size - 1)//2)),
+            nn.ReLU(),
+            nn.MaxPool2d((1, self.pool_dim))
+        ) 
         self.que_fc = nn.Linear(seq_len * que_n_sen, emb_size)
         self.doc_fc = nn.Linear(seq_len * doc_n_sen, emb_size)
 
@@ -85,10 +84,8 @@ class DeepCoNN(nn.Module):
         query = torch.cat(query, dim=1)
 
         # (batch_size, seq_len * sen_no, emb_size) -> (batch_size, emb_size)
-        for conv_layer in self.conv:
-            document = conv_layer(document)
-        for conv_layer in self.conv:
-            query = conv_layer(query)
+        document = self.conv(document)
+        query = self.conv(query)
         document = self.doc_fc(document)
         query = self.que_fc(query)
 
