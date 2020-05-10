@@ -67,7 +67,7 @@ class SimpleFC(nn.Module):
         return document, query
 
 class DeepCoNN(nn.Module):
-    def __init__(self, emb_size, seq_len, doc_n_sen, que_n_sen, win_size=5, depth=1):
+    def __init__(self, emb_size, seq_len, doc_n_sen, que_n_sen, win_size=5, depth=2):
         super(DeepCoNN, self).__init__()
         self.pool_dim = 2 * (emb_size - 1)//2 + 1
         self.conv = nn.ModuleList([
@@ -86,9 +86,9 @@ class DeepCoNN(nn.Module):
 
         # (batch_size, seq_len * sen_no, emb_size) -> (batch_size, emb_size)
         for conv_layer in self.conv:
-            document = self.conv_layer(document)
+            document = conv_layer(document)
         for conv_layer in self.conv:
-            query = self.conv(query)
+            query = conv_layer(query)
         document = self.doc_fc(document)
         query = self.que_fc(query)
 
