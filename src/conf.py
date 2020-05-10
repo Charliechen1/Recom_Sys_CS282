@@ -6,9 +6,9 @@ domain = 'All_Beauty'
 #domain = 'Movies_and_TV'
 
 # model setting
-embedding_type = 'word2vec'
+embedding_type = 'bert'
 rnn_type = 'GRU'
-dssm_type = 'simple_fc'
+dssm_type = 'deep_conn'
 ds_type = 'cff'
 # actual batch_size is batch_size * accumulation_steps
 # that's an optimization for poor group like us QAQ
