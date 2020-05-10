@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from Layers import DotProdAttnDSSM, SimpleFC, DeepCoNN, CNNDSSM, DocumentNet, QueryNet, ConcatFF, ConcatFM
+from Layers import CrossAttnDSSM, HierarchicalAttnDSSM, SimpleFC, DeepCoNN, CNNDSSM, DocumentNet, QueryNet, ConcatFF, ConcatFM
 from conf import *
 
 class RecomModel(nn.Module):
@@ -37,7 +37,13 @@ class RecomModel(nn.Module):
             d_model = lm_embed_dim
             
         if dssm_type == 'cros_attn_dssm':
-            self.dssm = DotProdAttnDSSM(d_model, rnn_hid_dim,
+            self.dssm = CrossAttnDSSM(d_model, rnn_hid_dim,
+                                     n_head, n_attn,
+                                     seq_len, doc_n_sen, que_n_sen, 
+                                     d_k, d_v,
+                                     dropout)
+        elif dssm_type == 'hie_attn_dssm':
+            self.dssm = HierarchicalAttnDSSM(d_model, rnn_hid_dim,
                                      n_head, n_attn,
                                      seq_len, doc_n_sen, que_n_sen, 
                                      d_k, d_v,

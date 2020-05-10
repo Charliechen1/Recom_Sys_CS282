@@ -8,18 +8,18 @@ domain = 'All_Beauty'
 # model setting
 embedding_type = 'bert'
 rnn_type = 'GRU'
-dssm_type = 'deep_conn'
+dssm_type = 'hie_attn_dssm'
 ds_type = 'cff'
 # actual batch_size is batch_size * accumulation_steps
 # that's an optimization for poor group like us QAQ
-batch_size = 64
-accumulation_steps = 1
+batch_size = 1
+accumulation_steps = 64
 pro_n_sen = 50
 rev_n_sen = 20
 seq_len = 150
 fm_embed_dim = 100
 n_head = 12
-n_attn = 2
+n_attn = 1
 d_k = d_v = 64
 n_rnn = 1
 rnn_hidden_dim = 50
@@ -40,4 +40,4 @@ start_from = None
 early_stop_steps = 20
 
 # test setting
-valid_size = 64
+valid_size = 1

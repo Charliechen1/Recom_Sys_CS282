@@ -91,8 +91,7 @@ class DeepCoNN(nn.Module):
 
         return document, query
 
-
-class DotProdAttnDSSM(nn.Module):
+class HierarchicalAttnDSSM(nn.Module):
     """
     Idea from paper: "A Hierarchical Attention Retrieval Model for Healthcare Question Answering"
     """
@@ -101,7 +100,104 @@ class DotProdAttnDSSM(nn.Module):
                  seq_len, doc_n_sen, que_n_sen, 
                  d_k, d_v, 
                  dropout=0.1):
-        super(DotProdAttnDSSM, self).__init__()
+        super(HierarchicalAttnDSSM, self).__init__()
+        
+        self.n_attn = n_attn
+        
+        self.dropout = nn.Dropout(dropout)
+        self.act = nn.ReLU()
+        # both query and document are with size:
+        # sen_no * (batch_size, seq_len, emb_size)
+        
+        # Just for cross attention:
+        # query: sen_no * (batch_size, seq_len, emb_size) -> (batch_size, seq_len, emb_size)
+        self.que_sen_linear = nn.Linear(que_n_sen, 1)
+        
+        # apply cross attention of query to document
+        # document: sen_no * (batch_size, seq_len, emb_size) unchanged
+        self.cros_attn_blocks = nn.ModuleList([
+            DecoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
+            for _ in range(doc_n_sen)
+        ])
+        
+        self.doc_self_attn_blocks = nn.ModuleList([
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
+            for _ in range(doc_n_sen)
+        ])
+        
+        self.que_self_attn_blocks = nn.ModuleList([
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
+            for _ in range(que_n_sen)
+        ])
+        
+        self.que_high_self_attn = EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
+        self.doc_high_self_attn = EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
+        
+        self.que_ff_linear = nn.Linear(seq_len * que_n_sen, seq_len)
+        self.doc_ff_linear = nn.Linear(seq_len * doc_n_sen, seq_len)
+        self.que_emb_linear = nn.Linear(seq_len, 1)
+        self.doc_emb_linear = nn.Linear(seq_len, 1)
+
+        
+    def forward(self, document, query):
+        # both query and document are with size:
+        # sen_no * (batch_size, seq_len, emb_size)
+        
+        # from sen_no * (batch_size, seq_len, emb_size)
+        # to (sen_no, batch_size, seq_len, emb_size)
+        # to (emb_size, batch_size, seq_len, sen_no)
+        query_enc = torch.stack(query).transpose(0, 3)
+        
+        # (emb_size, batch_size, seq_len, sen_no) -> (emb_size, batch_size, seq_len)
+        # (emb_size, batch_size, seq_len) -> (batch_size, emb_size, seq_len)
+        # (batch_size, emb_size, seq_len) -> (batch_size, seq_len, emb_size)
+        query_enc = self.que_sen_linear(query_enc).squeeze(-1).transpose(0, 1).transpose(1, 2)
+        
+        # sen_no * (batch_size, seq_len, emb_size) unchanged
+        doc_attn_res = [cros_attn_layer(query_enc, document[idx])[0] \
+                            for idx, cros_attn_layer in enumerate(self.cros_attn_blocks)]
+        
+        del query_enc
+        
+        que_attn_res = [self_attn_layer(query[idx])[0] \
+                            for idx, self_attn_layer in enumerate(self.que_self_attn_blocks)]
+        
+        doc_attn_res = [self_attn_layer(doc_attn_res[idx])[0] \
+                            for idx, self_attn_layer in enumerate(self.doc_self_attn_blocks)]
+        
+        # sen_no * (batch_size, seq_len, emb_size) -> (batch_size, seq_len * sen_no, emb_size) 
+        que_attn_res = torch.cat(query, dim=1)
+        # sen_no * (batch_size, seq_len, emb_size) -> (batch_size, seq_len * sen_no, emb_size) 
+        doc_attn_res = torch.cat(doc_attn_res, dim=1)
+        
+        # (batch_size, seq_len * sen_no, emb_size) -> (batch_size, emb_size, seq_len * sen_no) 
+        que_attn_res = que_attn_res.transpose(1, 2)
+        doc_attn_res = doc_attn_res.transpose(1, 2)
+        
+        # (batch_size, emb_size, seq_len * sen_no) -> (batch_size, emb_size, seq_len)
+        que_attn_res = self.act(self.que_ff_linear(que_attn_res))
+        doc_attn_res = self.act(self.doc_ff_linear(doc_attn_res))
+        
+        #  (batch_size, emb_size, seq_len) ->  (batch_size, seq_len, emb_size)
+        que_attn_res = self.que_high_self_attn(que_attn_res.transpose(1, 2))
+        doc_attn_res = self.doc_high_self_attn(doc_attn_res.transpose(1, 2))
+        
+        # (batch_size, emb_size, seq_len) -> (batch_size, emb_size)
+        que_attn_res = self.act(self.que_emb_linear(que_attn_res.transpose(1, 2))).squeeze(-1)
+        doc_attn_res = self.act(self.doc_emb_linear(doc_attn_res.transpose(1, 2))).squeeze(-1)
+        
+        return doc_attn_res, que_attn_res
+
+class CrossAttnDSSM(nn.Module):
+    """
+    Idea from paper: "A Hierarchical Attention Retrieval Model for Healthcare Question Answering"
+    """
+    def __init__(self, d_model, d_inner, 
+                 n_head, n_attn,
+                 seq_len, doc_n_sen, que_n_sen, 
+                 d_k, d_v, 
+                 dropout=0.1):
+        super(CrossAttnDSSM, self).__init__()
         
         self.n_attn = n_attn
         
