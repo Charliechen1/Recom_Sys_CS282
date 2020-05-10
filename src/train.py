@@ -140,11 +140,11 @@ for no in range(start_iter, no_of_iter):
     loss_track.append(accum_loss)
     
     # early ending
-    if len(loss_track) > 2 * early_stop_steps:
-        fst = torch.min(torch.stack(loss_track[-2 * early_stop_steps:-early_stop_steps]))
-        scd = torch.min(torch.stack(loss_track[-early_stop_steps:]))
-        if scd > fst:
-            break
+    #if len(loss_track) > 2 * early_stop_steps:
+    #    fst = torch.min(torch.stack(loss_track[-2 * early_stop_steps:-early_stop_steps]))
+    #    scd = torch.min(torch.stack(loss_track[-early_stop_steps:]))
+    #    if scd > fst:
+    #        break
     
     if no % 1 == 0:
         with torch.no_grad():
@@ -155,6 +155,8 @@ for no in range(start_iter, no_of_iter):
             logger.info(
                 f'{no}/{no_of_iter} of iterations, current train loss: {accum_loss:.4}, valid loss: {valid_loss:.4}'
             )
+    
+    if no % 50 == 0:
         save_model(no + 1, model, optimizer, loss, path="../model/checkpoint.model")
         
 

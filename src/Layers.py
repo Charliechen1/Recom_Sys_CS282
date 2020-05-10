@@ -67,26 +67,28 @@ class SimpleFC(nn.Module):
         return document, query
 
 class DeepCoNN(nn.Module):
-    def __init__(self, emb_size, seq_len, doc_n_sen, que_n_sen, win_size=5):
+    def __init__(self, emb_size, seq_len, doc_n_sen, que_n_sen, win_size=5, depth=1):
         super(DeepCoNN, self).__init__()
         self.pool_dim = 2 * (emb_size - 1)//2 + 1
-        self.conv = nn.Sequential(
-            nn.Conv2d(1, 1, (win_size, emb_size), padding=((win_size-1)//2, (emb_size - 1)//2)),
-            nn.ReLU(),
-            nn.MaxPool2d((1, self.pool_dim)))
+        self.conv = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv2d(1, 1, (win_size, emb_size), padding=((win_size-1)//2, (emb_size - 1)//2)),
+                nn.ReLU(),
+                nn.MaxPool2d((1, self.pool_dim))
+            ) for _ in range(depth)])
         self.que_fc = nn.Linear(seq_len * que_n_sen, emb_size)
         self.doc_fc = nn.Linear(seq_len * doc_n_sen, emb_size)
 
     def forward(self, document, query):
         # sen_no * (batch_size, seq_len, emb_size) -> (batch_size, seq_len * sen_no, emb_size)
-        document = torch.cat(document, dim=1).transpose(1, 2)
-        query = torch.cat(query, dim=1).transpose(1, 2)
+        document = torch.cat(document, dim=1)
+        query = torch.cat(query, dim=1)
 
         # (batch_size, seq_len * sen_no, emb_size) -> (batch_size, emb_size)
-        document = self.conv(torch.unsqueeze(document, dim = 1))
-        query = self.conv(torch.unsqueeze(query, dim = 1))
-        document = self.doc_fc(torch.squeeze(document))
-        query = self.que_fc(torch.squeeze(query))
+        document = self.conv(document)
+        query = self.conv(query)
+        document = self.doc_fc(document)
+        query = self.que_fc(query)
 
         return document, query
 
@@ -120,14 +122,14 @@ class DotProdAttnDSSM(nn.Module):
             for _ in range(doc_n_sen)
         ])
         
-        self.que_self_attn_blocks = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
-            for _ in range(n_attn)
-        ])
-        
         self.doc_self_attn_blocks = nn.ModuleList([
             EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
-            for _ in range(n_attn)
+            for _ in range(doc_n_sen)
+        ])
+        
+        self.que_self_attn_blocks = nn.ModuleList([
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
+            for _ in range(que_n_sen)
         ])
         
         self.que_ff_linear = nn.Linear(seq_len * que_n_sen, seq_len * que_n_sen)
@@ -150,35 +152,34 @@ class DotProdAttnDSSM(nn.Module):
         # (batch_size, emb_size, seq_len) -> (batch_size, seq_len, emb_size)
         query_enc = self.que_sen_linear(query_enc).squeeze(-1).transpose(0, 1).transpose(1, 2)
         
-        # sen_no * (batch_size, seq_len, emb_size)
+        # sen_no * (batch_size, seq_len, emb_size) unchanged
         doc_attn_res = [cros_attn_layer(query_enc, document[idx])[0] \
                             for idx, cros_attn_layer in enumerate(self.cros_attn_blocks)]
         
         del query_enc
+        
+        que_attn_res = [self_attn_layer(query[idx])[0] \
+                            for idx, self_attn_layer in enumerate(self.que_self_attn_blocks)]
+        
+        doc_attn_res = [self_attn_layer(doc_attn_res[idx])[0] \
+                            for idx, self_attn_layer in enumerate(self.doc_self_attn_blocks)]
+        
         # sen_no * (batch_size, seq_len, emb_size) -> (batch_size, seq_len * sen_no, emb_size) 
         que_attn_res = torch.cat(query, dim=1)
         # sen_no * (batch_size, seq_len, emb_size) -> (batch_size, seq_len * sen_no, emb_size) 
         doc_attn_res = torch.cat(doc_attn_res, dim=1)
-        
-        # (batch_size, seq_len * sen_no, emb_size) unchanged
-        for que_self_attn_block in self.que_self_attn_blocks:
-            que_attn_res, _ = que_self_attn_block(que_attn_res)
-            
-        # (batch_size, seq_len * sen_no, emb_size) unchanged
-        for doc_self_attn_block in self.doc_self_attn_blocks:
-            doc_attn_res, _ = doc_self_attn_block(doc_attn_res)
         
         # (batch_size, seq_len * sen_no, emb_size) -> (batch_size, emb_size, seq_len * sen_no) 
         que_attn_res = que_attn_res.transpose(1, 2)
         doc_attn_res = doc_attn_res.transpose(1, 2)
         
         # (batch_size, emb_size, seq_len * sen_no) unchanged
-        que_attn_res = self.dropout(self.act(self.que_ff_linear(que_attn_res)))
-        doc_attn_res = self.dropout(self.act(self.doc_ff_linear(doc_attn_res)))
+        que_attn_res = self.act(self.que_ff_linear(que_attn_res))
+        doc_attn_res = self.act(self.doc_ff_linear(doc_attn_res))
         
         # (batch_size, emb_size, seq_len * sen_no) -> (batch_size, emb_size)
-        que_attn_res = self.que_emb_linear(que_attn_res).squeeze(-1)
-        doc_attn_res = self.doc_emb_linear(doc_attn_res).squeeze(-1)
+        que_attn_res = self.act(self.que_emb_linear(que_attn_res)).squeeze(-1)
+        doc_attn_res = self.act(self.doc_emb_linear(doc_attn_res)).squeeze(-1)
         
         return doc_attn_res, que_attn_res
 
