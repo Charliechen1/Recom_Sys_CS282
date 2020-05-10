@@ -179,8 +179,8 @@ class HierarchicalAttnDSSM(nn.Module):
         doc_attn_res = self.act(self.doc_ff_linear(doc_attn_res))
         
         #  (batch_size, emb_size, seq_len) ->  (batch_size, seq_len, emb_size)
-        que_attn_res = self.que_high_self_attn(que_attn_res.transpose(1, 2))
-        doc_attn_res = self.doc_high_self_attn(doc_attn_res.transpose(1, 2))
+        que_attn_res, _ = self.que_high_self_attn(que_attn_res.transpose(1, 2))
+        doc_attn_res, _ = self.doc_high_self_attn(doc_attn_res.transpose(1, 2))
         
         # (batch_size, emb_size, seq_len) -> (batch_size, emb_size)
         que_attn_res = self.act(self.que_emb_linear(que_attn_res.transpose(1, 2))).squeeze(-1)
