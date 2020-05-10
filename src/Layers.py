@@ -84,8 +84,8 @@ class DeepCoNN(nn.Module):
         query = torch.cat(query, dim=1)
 
         # (batch_size, seq_len * sen_no, emb_size) -> (batch_size, emb_size)
-        document = self.conv(document)
-        query = self.conv(query)
+        document = self.conv(torch.unsqueeze(document, dim=1))
+        query = self.conv(torch.unsqueeze(query, dim=1))
         document = self.doc_fc(document)
         query = self.que_fc(query)
 

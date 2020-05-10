@@ -12,8 +12,8 @@ dssm_type = 'hie_attn_dssm'
 ds_type = 'cff'
 # actual batch_size is batch_size * accumulation_steps
 # that's an optimization for poor group like us QAQ
-batch_size = 1
-accumulation_steps = 64
+batch_size = 8
+accumulation_steps = 8
 pro_n_sen = 50
 rev_n_sen = 20
 seq_len = 150
@@ -40,4 +40,4 @@ start_from = None
 early_stop_steps = 20
 
 # test setting
-valid_size = 1
+valid_size = 8
