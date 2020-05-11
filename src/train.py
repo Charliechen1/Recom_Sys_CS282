@@ -165,7 +165,7 @@ x = list(range(len(loss_track)))
 plt.plot(x, loss_track)
 plt.savefig('../record/training_record.jpg')
 
-save_model(no_of_iter, model, optimizer, loss, path="../model/benchmark.model")
+save_model(no_of_iter, model, optimizer, loss, path="../model/result.model")
 
 # start testing
 test_size = len(r.idx_test)
