@@ -6,7 +6,7 @@ domain = 'All_Beauty'
 #domain = 'Movies_and_TV'
 
 # model setting
-embedding_type = 'bert'
+embedding_type = 'glove'
 rnn_type = 'GRU'
 dssm_type = 'cros_attn_dssm'
 ds_type = 'cff'
@@ -35,9 +35,9 @@ cuda_index = 0
 pretrain_freeze = True
 dropout = 0.5
 
-start_from = '../model/checkpoint.model.backup'
-#start_from = None
+#start_from = '../model/beauty_cnndssm_cff_bert.model'
+start_from = None
 early_stop_steps = 20
 
 # test setting
-valid_size = 1
+valid_size = 4

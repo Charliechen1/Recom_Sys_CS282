@@ -121,5 +121,6 @@ with torch.no_grad():
         loss += fold_loss
         if fold_no % 1 == 0:
             logger.info(f'testing progress: {fold_no}/{test_size // batch_size + 1}')
+            logger.info(f'current fold loss: {fold_loss}')
 test_loss = loss / num
 logger.info(f'testing loss: {test_loss:.4}')

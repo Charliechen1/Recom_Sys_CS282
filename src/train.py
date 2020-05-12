@@ -5,7 +5,7 @@ import torch.optim as optim
 import numpy as np
 
 import logging
-import sys
+import sys, os
 import matplotlib.pyplot as plt
 
 from Products import Products, prepare_prod_batch
@@ -13,6 +13,7 @@ from Reviews import Reviews, prepare_rev_batch
 from embeddings import get_embed_layer
 from model import RecomModel
 from conf import *
+
 
 # initialize logger
 def init_weights(m):
@@ -157,6 +158,7 @@ for no in range(start_iter, no_of_iter):
             )
     
     if no % 50 == 0:
+        os.rename(r'../model/checkpoint.model', r'../model/checkpoint.model.backup')
         save_model(no + 1, model, optimizer, loss, path="../model/checkpoint.model")
         
 
@@ -182,8 +184,9 @@ with torch.no_grad():
         rev, prod, target = prepare_batch_data(test_idx_batch)
         res = model(prod, rev)
         fold_loss = criterion(res, target)
-        loss += fold_loss
+        loss += fold_loss * len(test_idx_batch)
         if fold_no % 100 == 0:
             logger.info(f'testing progress: {fold_no}/{test_size // batch_size + 1}')
-test_loss = loss / num
+            logger.info(f'current fold loss: {fold_loss}')
+test_loss = loss / test_size
 logger.info(f'testing loss: {test_loss:.4}')
