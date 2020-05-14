@@ -4,6 +4,9 @@ This is a recommendation system for cs282 project. Recommender systems are perva
 # How to run
 All the configuration are in conf.py, if you have specific requirements, like change embedding, remember to modify it.
 
+## create directory needed
+`mkdir log record model`
+
 ## download data and install the environment
 `cd data`
 `sh download.sh All_Beauty` 
